@@ -5,7 +5,7 @@
       "args": [
         "run",
         "--directory", "/Users/sj1136/Documents/VSCode_files/gitRepo/Work/RePORTaLiN-Agent",
-        "python", "-m", "server",
+        "python", "-m", "reportalin.server",
         "--transport", "stdio"
       ],
       "env": {

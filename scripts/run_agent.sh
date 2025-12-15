@@ -82,7 +82,7 @@ else
     echo -e "  Starting MCP server in background..."
     
     # Start the server in background
-    uv run python -m server &
+    uv run python -m reportalin.server &
     SERVER_PID=$!
     
     # Wait for server to be ready
@@ -113,7 +113,7 @@ echo -e "${BLUE}═════════════════════�
 
 # Pass through any command line arguments as the prompt
 if [ $# -gt 0 ]; then
-    uv run python -m client.agent "$@"
+    uv run python -m reportalin.client.agent "$@"
 else
-    uv run python -m client.agent
+    uv run python -m reportalin.client.agent
 fi

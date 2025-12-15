@@ -289,9 +289,22 @@ install-dev:
 	@printf "$(BLUE)Installing development dependencies...$(NC)\n"
 	@uv sync --all-extras
 	@printf "$(GREEN)✓ Development dependencies installed$(NC)\n"
-	@printf "$(BLUE)Installing pre-commit hooks...$(NC)\n"
-	@uv run pre-commit install
-	@printf "$(GREEN)✓ Pre-commit hooks installed$(NC)\n"
+	@printf "$(BLUE)Installing pre-commit hooks (uv-compatible)...$(NC)\n"
+	@# Create custom pre-commit hook that uses uv run for reliability
+	@mkdir -p .git/hooks
+	@echo '#!/usr/bin/env bash' > .git/hooks/pre-commit
+	@echo '# Custom pre-commit hook using uv for reliability' >> .git/hooks/pre-commit
+	@echo 'set -e' >> .git/hooks/pre-commit
+	@echo 'cd "$$(git rev-parse --show-toplevel)"' >> .git/hooks/pre-commit
+	@echo 'if command -v uv > /dev/null 2>&1; then' >> .git/hooks/pre-commit
+	@echo '    exec uv run pre-commit run --hook-stage pre-commit "$$@"' >> .git/hooks/pre-commit
+	@echo 'elif [ -x ".venv/bin/pre-commit" ]; then' >> .git/hooks/pre-commit
+	@echo '    exec .venv/bin/pre-commit run --hook-stage pre-commit "$$@"' >> .git/hooks/pre-commit
+	@echo 'else' >> .git/hooks/pre-commit
+	@echo '    echo "Error: Run make install-dev first." >&2; exit 1' >> .git/hooks/pre-commit
+	@echo 'fi' >> .git/hooks/pre-commit
+	@chmod +x .git/hooks/pre-commit
+	@printf "$(GREEN)✓ Pre-commit hooks installed (uv-compatible)$(NC)\n"
 
 upgrade-deps:
 	@printf "$(BLUE)Upgrading all dependencies...$(NC)\n"
@@ -821,7 +834,7 @@ setup:
 	@printf "╚═══════════════════════════════════════════════════════════════════╝\n"
 	@printf "$(NC)\n"
 	@printf "$(YELLOW)This will:$(NC)\n"
-	@printf "  1. Install dependencies (uv)\n"
+	@printf "  1. Install dependencies (uv) + pre-commit hooks\n"
 	@printf "  2. Verify refactoring (imports + tools + docs)\n"
 	@printf "  3. Run data pipeline (dictionary + extraction)\n"
 	@printf "  4. De-identify PHI/PII (DPDPA 2023 compliant)\n"
@@ -832,10 +845,9 @@ setup:
 	@printf "$(CYAN)Starting in 3 seconds... (Ctrl+C to cancel)$(NC)\n"
 	@sleep 3
 	@printf "\n"
-	@# Step 1: Install dependencies
+	@# Step 1: Install dependencies + pre-commit hooks (reuse install-dev)
 	@printf "$(BOLD)$(BLUE)[1/7] Setting up environment...$(NC)\n"
-	@uv sync
-	@printf "$(GREEN)✓ Dependencies installed$(NC)\n"
+	@$(MAKE) install-dev
 	@printf "\n"
 	@# Step 2: Verify refactoring
 	@printf "$(BOLD)$(BLUE)[2/7] Verifying refactoring...$(NC)\n"
@@ -1016,10 +1028,11 @@ mcp-server-http:
 mcp-install-config-local:
 	@printf "$(BLUE)Installing local Python MCP configuration to Claude Desktop...$(NC)\n"
 	@mkdir -p ~/Library/Application\ Support/Claude
-	@echo '{"mcpServers":{"reportalin-mcp":{"command":"uv","args":["run","python","-m","reportalin.server"],"cwd":"$(CURDIR)","env":{"REPORTALIN_PRIVACY_MODE":"strict","NO_COLOR":"1"}}}}' > ~/Library/Application\ Support/Claude/claude_desktop_config.json
+	@UV_PATH=$$(which uv); \
+	echo "{\"mcpServers\":{\"reportalin-mcp\":{\"command\":\"$$UV_PATH\",\"args\":[\"run\",\"--directory\",\"$(CURDIR)\",\"python\",\"-m\",\"reportalin.server\",\"--transport\",\"stdio\"],\"env\":{\"REPORTALIN_PRIVACY_MODE\":\"strict\"}}}}" > ~/Library/Application\ Support/Claude/claude_desktop_config.json
 	@printf "$(GREEN)✓ Local Python configuration installed$(NC)\n"
 	@printf "$(YELLOW)→ Restart Claude Desktop to apply changes$(NC)\n"
-	@printf "$(CYAN)→ Command: uv run python -m server$(NC)\n"
+	@printf "$(CYAN)→ Command: uv run python -m reportalin.server$(NC)\n"
 	@printf "$(CYAN)→ Working Directory: $(CURDIR)$(NC)\n"
 
 # =============================================================================

@@ -10,7 +10,7 @@
         "args": [
           "run",
           "--directory", "/absolute/path/to/RePORTaLiN-Agent",
-          "python", "-m", "server"
+          "python", "-m", "reportalin.server"
         ],
         "env": {
           "REPORTALIN_PRIVACY_MODE": "strict"
@@ -36,7 +36,7 @@
         "_comment": "Direct venv Python - use absolute path to your virtual environment",
         "command": "/absolute/path/to/RePORTaLiN-Agent/.venv/bin/python",
         "args": [
-          "-m", "server"
+          "-m", "reportalin.server"
         ],
         "cwd": "/absolute/path/to/RePORTaLiN-Agent",
         "env": {
@@ -49,7 +49,7 @@
       "args": [
         "run",
         "--directory", "/absolute/path/to/RePORTaLiN-Agent",
-        "python", "-m", "server"
+        "python", "-m", "reportalin.server"
       ],
       "env": {
         "REPORTALIN_PRIVACY_MODE": "strict"

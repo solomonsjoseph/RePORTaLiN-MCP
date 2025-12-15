@@ -10,16 +10,16 @@ It handles:
 
 Usage:
     # Run stdio transport (for Claude Desktop)
-    uv run python -m server --transport stdio
+    uv run python -m reportalin.server --transport stdio
 
     # Run HTTP/SSE server (default for web clients)
-    uv run python -m server --transport sse
+    uv run python -m reportalin.server --transport sse
 
     # Run with specific options
-    uv run python -m server --host 0.0.0.0 --port 8000 --reload
+    uv run python -m reportalin.server --host 0.0.0.0 --port 8000 --reload
 
     # Or via uvicorn directly
-    uv run uvicorn server.main:app --host 0.0.0.0 --port 8000
+    uv run uvicorn reportalin.server.main:app --host 0.0.0.0 --port 8000
 """
 
 from __future__ import annotations

@@ -52,13 +52,13 @@ Design Decisions:
 Usage:
     ```bash
     # Run with uvicorn (recommended)
-    uv run uvicorn server.main:app --host 0.0.0.0 --port 8000
+    uv run uvicorn reportalin.server.main:app --host 0.0.0.0 --port 8000
 
     # Run with reload for development
-    uv run uvicorn server.main:app --host 0.0.0.0 --port 8000 --reload
+    uv run uvicorn reportalin.server.main:app --host 0.0.0.0 --port 8000 --reload
 
     # Or use the Python entry point
-    uv run python -m server.main
+    uv run python -m reportalin.server
     ```
 """
 

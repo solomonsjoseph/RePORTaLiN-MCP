@@ -101,11 +101,15 @@ LABEL org.opencontainers.image.title="RePORTaLiN Specialist MCP Server" \
       data.classification="PHI/PII-Protected"
 
 # Install tini for proper init (handles signals correctly) and curl for healthchecks
+# Using BuildKit cache mounts for faster rebuilds and --fix-missing for reliability
 # hadolint ignore=DL3008,DL3013,DL4006
-RUN apt-get update && \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache && \
+    apt-get update --fix-missing && \
     apt-get install -y --no-install-recommends curl wget ca-certificates && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    rm -rf /tmp/* /var/tmp/*
 
 # Download tini as a static binary (more reliable than apt package)
 # Use architecture-specific binary for multi-arch support

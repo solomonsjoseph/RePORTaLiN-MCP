@@ -232,7 +232,7 @@ This error means something is printing to stdout other than JSON-RPC messages.
 ```bash
 cd /path/to/RePORTaLiN-Agent
 echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | \
-  NO_COLOR=1 TERM=dumb FORCE_COLOR=0 .venv/bin/python -m server
+  NO_COLOR=1 TERM=dumb FORCE_COLOR=0 .venv/bin/python -m reportalin.server
 ```
 
 **Expected:** A single line of JSON starting with `{"jsonrpc":"2.0","id":1,"result":{...}}`
@@ -265,14 +265,14 @@ python3 --version  # Should be 3.10+
 
 ```bash
 # 1. Verify server imports correctly
-uv run python -c "from server import mcp; print('Server OK:', mcp.name)"
+uv run python -c "from reportalin.server import mcp; print('Server OK:', mcp.name)"
 
 # 2. Test the entry point
-uv run python -c "from server.__main__ import main; print('Entry point OK')"
+uv run python -c "from reportalin.server.__main__ import main; print('Entry point OK')"
 
 # 3. Test JSON-RPC response
 echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | \
-  NO_COLOR=1 TERM=dumb uv run python -m server
+  NO_COLOR=1 TERM=dumb uv run python -m reportalin.server
 
 # 4. Verify server is operational
 uv run python verify.py --verbose

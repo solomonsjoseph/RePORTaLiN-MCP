@@ -536,10 +536,10 @@ Priority: HIGH | Effort: Low | Dependencies: 3.x
 
 ```bash
 # Option 1: HTTP/SSE Transport (recommended for remote clients)
-uv run uvicorn server.main:app --host 0.0.0.0 --port 8000
+uv run uvicorn reportalin.server.main:app --host 0.0.0.0 --port 8000
 
 # Option 2: stdio Transport (for Claude Desktop)
-MCP_TRANSPORT=stdio uv run python -m server
+MCP_TRANSPORT=stdio uv run python -m reportalin.server
 
 # Option 3: Docker (production)
 docker compose up --build mcp-server

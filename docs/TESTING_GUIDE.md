@@ -196,7 +196,7 @@ npx @modelcontextprotocol/inspector http://localhost:8000/mcp/sse
 If using Claude Desktop config, you can inspect the stdio server:
 
 ```bash
-npx @modelcontextprotocol/inspector uv --directory /path/to/RePORTaLiN-Agent run python -m server
+npx @modelcontextprotocol/inspector uv --directory /path/to/RePORTaLiN-Agent run python -m reportalin.server
 ```
 
 ### Inspector Features
