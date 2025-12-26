@@ -19,11 +19,12 @@
 
 ## Overview
 
-RePORTaLiN MCP Server is a **Model Context Protocol** implementation that enables LLM-powered applications to securely query clinical research data. Built with privacy-by-design principles, it enforces k-anonymity thresholds and provides audit logging for HIPAA/DPDPA compliance.
+RePORTaLiN MCP Server is a **Model Context Protocol** implementation that provides a Data Dictionary Expert for the RePORT India TB study. This server focuses exclusively on variable discovery and metadata lookup - NO patient data access.
 
 ### Key Features
 
-- 🔒 **Privacy-Preserving** — K-anonymity enforcement (k≥5) on all aggregate queries
+- 📚 **Metadata Only** — Variable discovery and data dictionary lookup (NO patient data)
+- 🔍 **Variable Discovery** — Intelligent concept expansion for clinical research queries
 - 🌐 **Universal Transport** — Supports both stdio (Claude Desktop) and HTTP/SSE protocols
 - 🔐 **Secure by Default** — Bearer token authentication with constant-time comparison
 - 📊 **Schema-Aware Tools** — Pydantic-validated inputs with JSON Schema for LLM reliability
@@ -140,16 +141,14 @@ RePORTaLiN-Agent/
 │       ├── server/              # MCP server implementation
 │       │   ├── __main__.py      # Server entry point
 │       │   ├── main.py          # FastAPI application
-│       │   ├── tools/           # MCP tools package (refactored)
+│       │   ├── tools/           # MCP tools package (v0.3.0 - 3 tools)
 │       │   │   ├── __init__.py           # Package exports
-│       │   │   ├── prompt_enhancer.py    # NEW: Intelligent router
-│       │   │   ├── combined_search.py    # DEFAULT: Analytical queries
-│       │   │   ├── search_data_dictionary.py  # Metadata lookup
-│       │   │   ├── search_cleaned_dataset.py  # Dataset statistics
+│       │   │   ├── prompt_enhancer.py    # PRIMARY: Intelligent router
+│       │   │   ├── combined_search.py    # DEFAULT: Variable discovery
+│       │   │   ├── search_data_dictionary.py  # Direct variable lookup
 │       │   │   ├── registry.py           # FastMCP setup
 │       │   │   ├── _models.py            # Pydantic models
-│       │   │   ├── _loaders.py           # Data loading
-│       │   │   └── _analyzers.py         # Statistics
+│       │   │   └── _loaders.py           # Data loading (w/ Excel fallback)
 │       │   ├── config.py        # Settings (Pydantic)
 │       │   └── auth.py          # Authentication middleware
 │       ├── client/              # MCP client library
@@ -231,22 +230,21 @@ python -c "import secrets; print(secrets.token_hex(32))"
 
 ## Available Tools
 
-The MCP server exposes **4 privacy-safe tools** with an intelligent query router. **Use `prompt_enhancer` as the primary entry point for all queries.**
+The MCP server provides **3 specialized tools** for data dictionary exploration. This server is a **Data Dictionary Expert** - it provides metadata only, NO patient data or statistics.
 
 ### Tool Selection Guide
 
 | Query Type | Tool to Use |
 |------------|-------------|
 | **ANY question** (recommended) | `prompt_enhancer` ⭐ |
-| Any analytical question | `combined_search` |
-| Counts, distributions, statistics | `combined_search` |
-| "How many patients have X?" | `combined_search` |
-| "What variables exist for X?" (definitions only) | `search_data_dictionary` |
-| Direct dataset query (exact variable name known) | `search_cleaned_dataset` |
+| Variable discovery for research questions | `combined_search` |
+| "What variables should I use for relapse analysis?" | `combined_search` |
+| "What variables track TB outcome?" | `combined_search` |
+| Direct variable lookup by keyword | `search_data_dictionary` |
 
-### Primary Tool (NEW)
+### Available Tools (3 Total)
 
-#### `prompt_enhancer` ⭐ **RECOMMENDED ENTRY POINT**
+#### `prompt_enhancer` ⭐ **PRIMARY ENTRY POINT**
 
 **Intelligent query router with user confirmation flow.** Analyzes your question, confirms understanding, then automatically routes to the appropriate specialized tool.
 
@@ -254,95 +252,66 @@ The MCP server exposes **4 privacy-safe tools** with an intelligent query router
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `user_query` | string | Yes | ANY question in natural language (5-500 chars) |
+| `user_query` | string | Yes | ANY question about variables/metadata (5-500 chars) |
 | `context` | object | No | Optional context from previous queries |
 | `user_confirmation` | boolean | No | Set to `true` after confirming interpretation (default: `false`) |
 
-**Example Workflow:**
+**Example:**
 ```json
-// Step 1: Submit query
 {
   "name": "prompt_enhancer",
   "arguments": {
-    "user_query": "How many TB patients?",
-    "user_confirmation": false
+    "user_query": "What variables should I use for relapse analysis?"
   }
 }
-// Returns: Interpretation + confirmation request
-
-// Step 2: Confirm and execute
-{
-  "name": "prompt_enhancer",
-  "arguments": {
-    "user_query": "How many TB patients?",
-    "user_confirmation": true
-  }
-}
-// Returns: Actual results from routed tool
+// Returns: Variable list with descriptions, tables, and codelists
 ```
 
-### Specialized Tools
+#### `combined_search` (DEFAULT for variable discovery)
 
-#### `combined_search` (DEFAULT for analytical queries)
-
-**Use this for ALL analytical queries.** Searches through ALL data sources (dictionary + cleaned dataset).
+**Use this for variable discovery.** Searches through data dictionary with concept expansion (e.g., "relapse" → ["relapse", "recurrence", "recurrent"]).
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `concept` | string | Yes | Clinical concept or research question (3-500 chars) |
-| `include_statistics` | boolean | No | Include aggregate stats (default: `true`) |
 
 **Example:**
 ```json
 {
   "name": "combined_search",
   "arguments": {
-    "concept": "diabetes prevalence"
+    "concept": "diabetes variables"
   }
 }
+// Returns: Relevant variables, descriptions, codelists
 ```
 
 #### `search_data_dictionary`
 
-Search for variable definitions ONLY - **does NOT return statistics**.
-
-Use ONLY when asking "what variables exist?" or "what does variable X mean?"
-For any analytical question, use `combined_search` instead.
+Direct variable lookup by keyword - **metadata only, NO statistics**.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `query` | string | Yes | Term to search for (1-200 chars) |
 | `include_codelists` | boolean | No | Include codelist values (default: `true`) |
 
-#### `search_cleaned_dataset`
-
-Direct query to cleaned (de-identified) dataset when you already know the exact variable name.
-
-**Privacy:** This tool ONLY accesses deidentified data. Original dataset is NOT accessible.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `variable` | string | Yes | Exact variable name to query |
-| `table_filter` | string | No | Limit to specific table |
-
 ### Tool Architecture
 
 ```
 User Query → prompt_enhancer (confirms) → Routes to appropriate tool
                     ↓
-    ┌───────────────┼───────────────┐
-    │               │               │
-combined_search  search_data_  search_cleaned_
-(analytical)     dictionary    dataset
-                 (metadata)    (direct query)
+    ┌───────────────┴───────────────┐
+    │                               │
+combined_search              search_data_dictionary
+(variable discovery)         (direct lookup)
 ```
 
-### Privacy & Security
+### What This Server Does
 
-- ✅ All tools return **aggregate statistics only** (no individual records)
-- ✅ K-anonymity threshold enforced (k ≥ 5)
-- ✅ Only **deidentified data** accessible (no PHI/PII)
-- ✅ Audit logging for compliance (HIPAA/DPDPA)
+- ✅ Returns **variable names, descriptions, tables, codelists**
+- ✅ Concept synonym expansion for variable discovery
+- ✅ Data dictionary metadata lookup
+- ❌ NO patient data, NO statistics, NO dataset access
 
 ---
 

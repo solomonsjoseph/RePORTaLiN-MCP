@@ -1,19 +1,14 @@
-"""Combined search tool - PRIMARY DEFAULT TOOL for all analytical queries.
+"""Concept-based search tool for data dictionary and codelists.
 
-This tool searches through ALL data sources:
+This tool searches through:
 1. DATA DICTIONARY - Finds relevant variables for your concept
-2. CLEANED DATASET - Gets aggregate statistics (counts, means, distributions)
-3. ORIGINAL DATASET - Falls back if cleaned data is unavailable
-4. CODELISTS - Returns valid values for categorical variables
+2. CODELISTS - Returns valid values for categorical variables
 
-This is the DEFAULT tool for ANY analytical question. It merges functionality from:
-- Original combined_search
-- Cross-tabulation analysis
-- Cohort summaries
-- Data quality reports
-- Multi-variable comparisons
+Uses intelligent concept synonym mapping to expand search queries.
+For example, "relapse" also searches for "recurrence", "recurrent", "recur".
 
-Use this tool unless the user specifically asks ONLY about variable definitions/metadata.
+Use this tool for questions about what variables are available for a given
+clinical concept or research question.
 """
 
 from __future__ import annotations
@@ -23,12 +18,9 @@ from typing import Any
 from mcp.server.fastmcp import Context
 
 from reportalin.core.logging import get_logger
-from reportalin.server.tools._analyzers import compute_variable_stats
 from reportalin.server.tools._loaders import (
-    get_cleaned_dataset,
     get_codelists,
     get_data_dictionary,
-    get_original_dataset,
 )
 from reportalin.server.tools._models import CombinedSearchInput
 
@@ -42,42 +34,30 @@ async def combined_search(
     ctx: Context,
 ) -> dict[str, Any]:
     """
-    PRIMARY TOOL: Answer ANY question about the RePORT India TB study data.
+    Search for variables related to a clinical concept.
 
-    THIS IS THE DEFAULT TOOL FOR ALL QUERIES. Always use this tool unless the
-    user specifically asks ONLY about variable definitions/metadata.
+    Uses intelligent concept synonym mapping to find relevant variables.
+    For example, searching for "relapse" will also find variables related to
+    "recurrence", "recurrent", and "recur".
 
-    This tool searches through ALL data sources:
-    1. DATA DICTIONARY - Finds relevant variables for your concept
-    2. CLEANED DATASET - Gets aggregate statistics (counts, means, distributions)
-    3. ORIGINAL DATASET - Falls back if cleaned data is unavailable
-    4. CODELISTS - Returns valid values for categorical variables
-
-    Use this for ANY analytical question:
-    - "How many participants have diabetes?" → Statistics from dataset
-    - "What is the smoking status distribution?" → Counts and percentages
-    - "Show me HIV-related data" → Variables + statistics
-    - "What are the treatment outcomes?" → Outcome distributions
-    - "Age and sex distribution" → Demographics summary
-    - "BMI/malnutrition data" → Numerical statistics
-    - "Compare outcomes by HIV status" → Cross-analysis
-
-    SECURITY: Returns ONLY aggregate statistics. NEVER individual records.
+    Use this for questions like:
+    - "What variables are available for relapse analysis?"
+    - "Show me diabetes-related variables"
+    - "Which variables capture TB treatment outcomes?"
+    - "Find HIV status variables"
 
     Args:
-        input: Clinical concept, research question, or variable name to analyze
+        input: Clinical concept or research question
         ctx: MCP context
 
     Returns:
-        Variables found in dictionary + aggregate statistics from ALL datasets
+        Variables found in dictionary + codelist definitions
     """
     await ctx.info(f"Combined search for: {input.concept}")
 
     try:
         data_dict = get_data_dictionary()
         codelists = get_codelists()
-        cleaned_dataset = get_cleaned_dataset()
-        original_dataset = get_original_dataset()
 
         concept_lower = input.concept.lower()
 
@@ -188,8 +168,6 @@ async def combined_search(
             "search_terms_used": search_terms,
             "variables_found": [],
             "codelists_found": [],
-            "statistics": [],
-            "data_source": None,
             "summary": {},
         }
 
@@ -273,119 +251,13 @@ async def combined_search(
         results["codelists_found"] = list(found_codelists.values())[:10]
 
         # =================================================================
-        # STEP 4: Get STATISTICS from datasets (cleaned first, then original)
-        # =================================================================
-
-        if input.include_statistics:
-            stats_computed = {}  # actual_field -> stats
-
-            # Try cleaned dataset first
-            data_source = "cleaned"
-            for var_info in results["variables_found"][:15]:
-                field_name = var_info["field_name"]
-                if not field_name:
-                    continue
-
-                field_lower = field_name.lower()
-                found_in_cleaned = False
-
-                # Search in cleaned dataset
-                for table_name, records in cleaned_dataset.items():
-                    if not records:
-                        continue
-
-                    sample = records[0]
-
-                    # Try exact match first
-                    if field_name in sample:
-                        if field_name not in stats_computed:
-                            stats = compute_variable_stats(records, field_name)
-                            stats["source_table"] = table_name
-                            stats["source_dataset"] = "cleaned"
-                            stats["dictionary_field"] = field_name
-                            stats["match_type"] = "exact"
-                            stats_computed[field_name] = stats
-                            found_in_cleaned = True
-                            break
-
-                    # Try partial match (handles prefixed fields)
-                    for actual_field in sample.keys():
-                        actual_lower = actual_field.lower()
-                        if (
-                            field_lower in actual_lower
-                            or actual_lower.endswith(field_lower)
-                            or field_lower.endswith(actual_lower)
-                        ):
-                            if actual_field not in stats_computed:
-                                stats = compute_variable_stats(records, actual_field)
-                                stats["source_table"] = table_name
-                                stats["source_dataset"] = "cleaned"
-                                stats["dictionary_field"] = field_name
-                                stats["actual_field"] = actual_field
-                                stats["match_type"] = "partial"
-                                stats_computed[actual_field] = stats
-                                found_in_cleaned = True
-                                break
-
-                    if found_in_cleaned:
-                        break
-
-                # If not found in cleaned, try original dataset
-                if not found_in_cleaned and original_dataset:
-                    for table_name, records in original_dataset.items():
-                        if not records:
-                            continue
-
-                        sample = records[0]
-
-                        # Try exact match
-                        if field_name in sample:
-                            if field_name not in stats_computed:
-                                stats = compute_variable_stats(records, field_name)
-                                stats["source_table"] = table_name
-                                stats["source_dataset"] = "original"
-                                stats["dictionary_field"] = field_name
-                                stats["match_type"] = "exact"
-                                stats_computed[field_name] = stats
-                                data_source = "original (not in cleaned)"
-                                break
-
-                        # Try partial match
-                        for actual_field in sample.keys():
-                            actual_lower = actual_field.lower()
-                            if field_lower in actual_lower or actual_lower.endswith(
-                                field_lower
-                            ):
-                                if actual_field not in stats_computed:
-                                    stats = compute_variable_stats(
-                                        records, actual_field
-                                    )
-                                    stats["source_table"] = table_name
-                                    stats["source_dataset"] = "original"
-                                    stats["dictionary_field"] = field_name
-                                    stats["actual_field"] = actual_field
-                                    stats["match_type"] = "partial"
-                                    stats_computed[actual_field] = stats
-                                    data_source = "original (not in cleaned)"
-                                    break
-
-                # Limit total statistics
-                if len(stats_computed) >= 8:
-                    break
-
-            results["statistics"] = list(stats_computed.values())
-            results["data_source"] = data_source if stats_computed else "no data found"
-
-        # =================================================================
-        # STEP 5: Build summary
+        # STEP 3: Build summary
         # =================================================================
 
         results["summary"] = {
             "query": input.concept,
             "variables_found": len(results["variables_found"]),
             "codelists_found": len(results["codelists_found"]),
-            "statistics_computed": len(results["statistics"]),
-            "data_source": results["data_source"],
         }
 
         # Add guidance if nothing found

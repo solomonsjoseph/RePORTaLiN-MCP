@@ -59,8 +59,8 @@ Based on workspace analysis, the following components are **already in place**:
 | K-Anonymity Enforcement | ✅ Complete | `MIN_K_ANONYMITY = 5` |
 | Docker Deployment | ✅ Complete | `Dockerfile`, `docker-compose.yml` |
 | **Data Pipeline Connector** | ✅ Complete | `server/data_pipeline.py` |
-| **10-Tool MCP Design** | ✅ Complete | `combined_search` (default), 9 supporting tools |
-| **Pipeline Status Tool** | ✅ Complete | Via `cohort_summary` tool |
+| **3-Tool MCP Design (v0.3.0)** | ✅ Complete | Data Dictionary Expert - metadata only |
+| **Variable Discovery** | ✅ Complete | Via `combined_search` with concept expansion |
 
 ### Core Data Pipeline Flow ✅
 
@@ -348,118 +348,23 @@ class DatabasePool:
 Priority: HIGH | Effort: Medium | Dependencies: 2.2
 ```
 
-The **10-Tool MCP Design** is now implemented for clinical data querying:
+The **3-Tool MCP Design (v0.3.0)** is implemented as a Data Dictionary Expert:
 
-**Tool Selection Guide:** Use `combined_search` as the DEFAULT for ALL queries.
+**Focus:** Variable discovery and metadata lookup ONLY - NO patient data or statistics.
 
 | Tool | Purpose | Example Query |
 |------|---------|---------------|
-| `combined_search` | **DEFAULT** - Search ALL data sources | "How many have diabetes?" |
-| `natural_language_query` | Complex multi-concept questions | "Compare outcomes by HIV status" |
-| `cohort_summary` | Comprehensive participant overview | "Give me a cohort overview" |
-| `cross_tabulation` | Analyze variable relationships | "Is HIV associated with outcome?" |
-| `variable_details` | Deep dive into one variable | "Tell me about AGE variable" |
-| `data_quality_report` | Missing data analysis | "What data quality issues?" |
-| `multi_variable_comparison` | Side-by-side statistics | "Compare AGE, BMI, CD4" |
-| `search_data_dictionary` | Variable definitions ONLY | "What variables exist for HIV?" |
-| `search_cleaned_dataset` | Direct query (known variable) | Query with exact field name |
-| `search_original_dataset` | Fallback to original data | When cleaned data missing |
+| `prompt_enhancer` | **PRIMARY** - Intelligent router with confirmation | "What variables for relapse analysis?" |
+| `combined_search` | **DEFAULT** - Variable discovery with concept expansion | "Diabetes variables", "TB outcome tracking" |
+| `search_data_dictionary` | Direct variable lookup (metadata only) | "Search for smoking", "HIV status variable" |
 
-**Current State:** `server/tools.py` has all 10 tools implemented.
+**What This Server Returns:**
+- ✅ Variable names, descriptions, tables, codelists
+- ❌ NO patient data, NO statistics, NO dataset access
 
-**Enhancement - Add Missing Tools:**
+**Current State:** `server/tools/` package has all 3 tools implemented.
 
-```python
-# server/tools.py - Add to existing file
-
-@mcp.tool()
-async def list_datasets(
-    ctx: Context,
-    include_metadata: Annotated[
-        bool,
-        Field(default=True, description="Include row counts and last update times")
-    ] = True,
-) -> str:
-    """
-    List all available clinical study datasets.
-    
-    Returns a catalog of accessible tables/domains with optional metadata
-    like record counts and schema versions. Use this first to discover
-    what data is available before querying.
-    
-    Returns:
-        JSON string with dataset catalog
-    """
-    logger.info("list_datasets called", include_metadata=include_metadata)
-    
-    # Query available datasets
-    datasets = await _get_available_datasets()
-    
-    result = {
-        "datasets": [
-            {
-                "name": ds.name,
-                "domain": ds.cdisc_domain,
-                "description": ds.description,
-                "record_count": ds.row_count if include_metadata else None,
-                "last_updated": ds.updated_at.isoformat() if include_metadata else None,
-            }
-            for ds in datasets
-        ],
-        "total_count": len(datasets),
-    }
-    
-    return json.dumps(result, indent=2)
-
-
-@mcp.tool()
-async def describe_schema(
-    ctx: Context,
-    dataset_name: Annotated[
-        str,
-        Field(description="Name of the dataset to describe", min_length=1, max_length=100)
-    ],
-    include_statistics: Annotated[
-        bool,
-        Field(default=False, description="Include basic statistics per field")
-    ] = False,
-) -> str:
-    """
-    Get detailed schema information for a specific dataset.
-    
-    Returns field names, data types, descriptions, and optionally
-    basic statistics. Essential for understanding data structure
-    before writing queries.
-    
-    Returns:
-        JSON string with schema details
-    """
-    logger.info("describe_schema called", dataset=dataset_name)
-    
-    schema = await _get_dataset_schema(dataset_name)
-    
-    if schema is None:
-        return json.dumps({"error": f"Dataset '{dataset_name}' not found"})
-    
-    result = {
-        "dataset": dataset_name,
-        "fields": [
-            {
-                "name": field.name,
-                "type": field.data_type,
-                "description": field.description,
-                "nullable": field.nullable,
-                "cdisc_variable": field.cdisc_variable,
-                "statistics": field.stats if include_statistics else None,
-            }
-            for field in schema.fields
-        ],
-        "primary_key": schema.primary_key,
-        "foreign_keys": schema.foreign_keys,
-    }
-    
-    return json.dumps(result, indent=2)
-```
+> **Note (v0.3.0):** The enhancements below for dataset access tools (`list_datasets`, `describe_schema`) are NOT applicable to v0.3.0, which is a Data Dictionary Expert focused exclusively on metadata. These enhancements would be relevant for a future version that includes patient data access.
 
 #### 3.2 JSON-RPC Request Handling
 
@@ -552,7 +457,7 @@ docker compose up --build mcp-server
 curl http://localhost:8000/health
 
 # Expected response:
-# {"status": "healthy", "version": "2.1.0", "protocol": "2025-03-26"}
+# {"status": "healthy", "version": "0.3.0", "protocol": "2025-03-26"}
 ```
 
 #### 4.2 Environment Configuration

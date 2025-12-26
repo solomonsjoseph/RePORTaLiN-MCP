@@ -31,33 +31,48 @@ from client.mcp_client import (
 
 @pytest.fixture
 def sample_mcp_tools() -> list[types.Tool]:
-    """Create sample MCP tools for testing.
+    """Create sample MCP tools for testing (v0.3.0 - Data Dictionary Expert).
 
-    Note: combined_search is the DEFAULT tool for all queries.
+    v0.3.0: 3 tools - metadata only, NO patient data or statistics.
     """
     return [
         types.Tool(
+            name="prompt_enhancer",
+            description="PRIMARY - Intelligent router with confirmation",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "user_query": {
+                        "type": "string",
+                        "description": "ANY question about variables/metadata",
+                    },
+                    "user_confirmation": {"type": "boolean", "default": False},
+                },
+                "required": ["user_query"],
+            },
+        ),
+        types.Tool(
             name="combined_search",
-            description="DEFAULT tool - Search ALL data sources for statistics",
+            description="DEFAULT - Variable discovery with concept expansion (metadata only)",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "concept": {
                         "type": "string",
-                        "description": "Clinical concept to search",
+                        "description": "Clinical concept for variable discovery",
                     },
-                    "include_statistics": {"type": "boolean", "default": True},
                 },
                 "required": ["concept"],
             },
         ),
         types.Tool(
             name="search_data_dictionary",
-            description="Variable definitions ONLY (no statistics)",
+            description="Direct variable lookup (metadata only)",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "Search term"},
+                    "include_codelists": {"type": "boolean", "default": True},
                 },
                 "required": ["query"],
             },

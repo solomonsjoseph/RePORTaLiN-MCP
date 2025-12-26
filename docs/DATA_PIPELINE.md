@@ -83,34 +83,22 @@ Connects MCP tools to de-identified results:
   - Group suppression for small counts
   - Audit logging for compliance
 
-## MCP Tools
+## MCP Tools (v0.3.0 - Data Dictionary Expert)
 
-**Tool Selection Guide:** Use `combined_search` as the DEFAULT for ALL queries.
+This server provides **3 tools** for metadata lookup ONLY. NO patient data or statistics.
 
-### Primary Tools (Use for Most Questions)
+### All Tools (3 Total)
 
-| Tool | Purpose | Privacy |
+| Tool | Purpose | Returns |
 |------|---------|---------|
-| `combined_search` | **DEFAULT** - Search ALL data sources for statistics | K-anonymity protected |
-| `natural_language_query` | Complex multi-concept questions | K-anonymity protected |
-| `cohort_summary` | Comprehensive participant overview | K-anonymity protected |
-| `cross_tabulation` | Analyze variable relationships | K-anonymity protected |
+| `prompt_enhancer` | **PRIMARY** - Intelligent router with confirmation | Routed to appropriate tool |
+| `combined_search` | **DEFAULT** - Variable discovery with concept expansion | Variable names, descriptions, tables, codelists |
+| `search_data_dictionary` | Direct variable lookup by keyword | Variable definitions, codelists |
 
-### Detailed Analysis Tools
-
-| Tool | Purpose | Privacy |
-|------|---------|---------|
-| `variable_details` | Deep dive into one variable | K-anonymity protected |
-| `data_quality_report` | Missing data analysis | K-anonymity protected |
-| `multi_variable_comparison` | Side-by-side statistics | K-anonymity protected |
-
-### Supporting Tools (Specific Needs Only)
-
-| Tool | Purpose | When to Use |
-|------|---------|-------------|
-| `search_data_dictionary` | Variable definitions ONLY | Only for "what variables exist?" |
-| `search_cleaned_dataset` | Direct query to cleaned data | When exact variable name known |
-| `search_original_dataset` | Fallback to original data | When cleaned data missing |
+**What This Server Does:**
+- ✅ Variable discovery for research questions
+- ✅ Returns: Variable names, descriptions, tables, codelists
+- ❌ NO patient data, NO statistics, NO dataset access
 
 ## Quick Start
 
@@ -159,8 +147,10 @@ RePORTaLiN-Agent/
 │   ├── deidentify.py               # Stage 2: De-identification
 │   └── load_dictionary.py          # Dictionary loader
 ├── server/
-│   ├── data_pipeline.py            # Stage 3: MCP connector
-│   ├── tools.py                    # MCP tool definitions
+│   ├── tools/                      # MCP tools package (v0.3.0 - 3 tools)
+│   │   ├── registry.py             # FastMCP setup
+│   │   ├── combined_search.py      # Variable discovery
+│   │   └── ...
 │   └── main.py                     # MCP server entry
 └── main.py                         # Pipeline orchestrator
 ```

@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-12-26
+
+### 🚨 BREAKING CHANGES
+
+**Complete restructure to Data Dictionary Expert - metadata only, NO patient data**
+
+This release transforms RePORTaLiN from a clinical data analysis server to a specialized data dictionary expert focused exclusively on variable discovery and metadata lookup.
+
+### Removed
+
+- ❌ **`search_cleaned_dataset` tool** - Dataset query functionality removed
+- ❌ **Dataset statistics** - All statistical analysis removed from `combined_search`
+- ❌ **`_analyzers.py` module** - Statistical functions removed
+- ❌ **Dataset loading** - No patient data access whatsoever
+- ❌ **Core dependencies**: pandas, numpy, openpyxl, tqdm (→ optional `[data-prep]`)
+
+### Changed
+
+- **Tools: 4 → 3** (removed `search_cleaned_dataset`)
+  1. `prompt_enhancer` - PRIMARY entry point (routes queries)
+  2. `combined_search` - Variable discovery with concept expansion (NO statistics)
+  3. `search_data_dictionary` - Direct variable lookup
+- **Server focus**: Clinical data analysis → Data dictionary expert
+- **Version**: 2.1.0 → 0.3.0 (pre-1.0 for breaking changes)
+- **pandas/openpyxl**: Core dependency → optional `[data-prep]` (for JSONL generation only)
+
+### Added
+
+- ✅ **Excel fallback** in `_loaders.py` - Auto-generates JSONL from Excel if needed
+- ✅ **18 JSONL files** committed to repo (1050 variable definitions, 47 codelists)
+- ✅ **`load_dictionary.py` restored** - For standalone JSONL generation
+- ✅ **Concept synonym mapping preserved** - Critical variable discovery feature intact
+
+### Fixed
+
+- PROJECT_ROOT path calculation (4 levels up from `_loaders.py`)
+- All version references updated to 0.3.0
+- Removed `include_statistics` parameter from `CombinedSearchInput`
+
+### Migration Guide
+
+**For Runtime Use:**
+```bash
+# Install without pandas (50MB reduction)
+uv pip install reportalin-mcp
+```
+
+**For Data Preparation:**
+```bash
+# Generate JSONL from Excel
+uv pip install reportalin-mcp[data-prep]
+```
+
+**What This Server Does Now:**
+- ✅ Variable discovery: "What variables for relapse analysis?"
+- ✅ Returns: Variable names, descriptions, tables, codelists
+- ❌ NO patient data, NO statistics, NO dataset access
+
+---
+
+## [Unreleased]
+
 ### Added
 
 - **NEW: Intelligent Query Router - `prompt_enhancer` Tool** ⭐

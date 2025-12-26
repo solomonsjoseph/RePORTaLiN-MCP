@@ -61,7 +61,7 @@ uv run python tests/integration/test_server_startup.py
 
 ```
 ✓ 30/30 unit tests passing
-✓ 10/10 tools properly registered
+✓ 3/3 tools properly registered (v0.3.0 - Data Dictionary Expert)
 ✓ SERVER IS READY FOR USE
 ```
 
@@ -163,45 +163,31 @@ docker build -t reportalin-specialist .
 
 Claude should automatically use the `get_study_variables` tool.
 
-## Available Tools
+## Available Tools (v0.3.0 - Data Dictionary Expert)
+
+This server provides **3 tools** for metadata lookup ONLY. NO patient data or statistics.
 
 ### Tool Selection Guide
 
-**DEFAULT BEHAVIOR: Use `combined_search` for ALL queries unless specifically asking about variable definitions.**
-
 | Query Type | Tool to Use |
 |------------|-------------|
-| Any analytical question | `combined_search` |
-| Counts, distributions, statistics | `combined_search` |
-| "How many patients have X?" | `combined_search` |
-| "What is the distribution of Y?" | `combined_search` |
-| "What variables exist for X?" | `search_data_dictionary` |
-| "What does variable Y mean?" | `search_data_dictionary` |
+| **ANY question** (recommended) | `prompt_enhancer` ⭐ |
+| Variable discovery for research questions | `combined_search` |
+| "What variables should I use for relapse analysis?" | `combined_search` |
+| "What variables track TB outcome?" | `combined_search` |
+| Direct variable lookup by keyword | `search_data_dictionary` |
 
-### Primary Tools (Use for Most Questions)
-
-| Tool | Description | Example Query |
-|------|-------------|---------------|
-| `combined_search` | **DEFAULT** - Searches ALL data sources for statistics | "How many have diabetes?", "Age distribution" |
-| `natural_language_query` | Complex multi-concept questions | "Compare outcomes between smokers and non-smokers" |
-| `cohort_summary` | Comprehensive participant overview | "Give me an overview of the cohort" |
-| `cross_tabulation` | Analyze relationships between two variables | "Is HIV associated with outcome?" |
-
-### Detailed Analysis Tools
+### All Tools (3 Total)
 
 | Tool | Description | Example Query |
 |------|-------------|---------------|
-| `variable_details` | Deep dive into ONE specific variable | "Tell me everything about AGE" |
-| `data_quality_report` | Missing data and completeness analysis | "What data quality issues exist?" |
-| `multi_variable_comparison` | Side-by-side statistics | "Compare AGE, BMI, and CD4 statistics" |
+| `prompt_enhancer` | **PRIMARY** - Intelligent router with confirmation | "What variables for relapse analysis?" |
+| `combined_search` | **DEFAULT** - Variable discovery with concept expansion | "Diabetes variables", "TB outcome tracking" |
+| `search_data_dictionary` | Direct variable lookup (metadata only) | "Search for smoking", "HIV status variable" |
 
-### Supporting Tools (Specific Needs Only)
-
-| Tool | Description | When to Use |
-|------|-------------|-------------|
-| `search_data_dictionary` | Variable definitions ONLY (no statistics) | Only when asking "what variables exist?" |
-| `search_cleaned_dataset` | Direct query to cleaned data | When exact variable name is known |
-| `search_original_dataset` | Fallback to original data | When cleaned data is missing something |
+**What This Server Returns:**
+- ✅ Variable names, descriptions, tables, codelists
+- ❌ NO patient data, NO statistics, NO dataset access
 
 ## Troubleshooting
 
@@ -291,18 +277,23 @@ The MCP server enforces privacy protections:
 | **Network Isolation** | Stdio transport (no network exposure) |
 | **DPDPA 2023** | India data protection compliance |
 
-## Architecture
+## Architecture (v0.3.0)
 
 ```
 server/
 ├── __init__.py           # Package initialization
 ├── __main__.py           # Entry point with stdio isolation
-├── main.py               # FastMCP server and HTTP endpoints
-├── tools.py              # MCP tool definitions and implementation
+├── main.py               # FastAPI application
+├── tools/                # MCP tools package (3 tools - metadata only)
+│   ├── __init__.py                  # Package exports
+│   ├── prompt_enhancer.py           # PRIMARY: Intelligent router
+│   ├── combined_search.py           # DEFAULT: Variable discovery
+│   ├── search_data_dictionary.py   # Direct variable lookup
+│   ├── registry.py                  # FastMCP setup
+│   ├── _models.py                   # Pydantic models
+│   └── _loaders.py                  # Data loading (w/ Excel fallback)
 ├── auth.py               # Bearer token authentication
 ├── config.py             # Server configuration
-├── data_pipeline.py      # Data pipeline connector
-├── logger.py             # Structured logging
 └── security/             # Security modules (encryption, rate limiting)
 ```
 

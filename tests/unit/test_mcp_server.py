@@ -16,7 +16,6 @@ from pydantic import ValidationError
 
 from reportalin.server.tools import (
     CombinedSearchInput,
-    SearchCleanedDatasetInput,
     SearchDataDictionaryInput,
     get_tool_registry,
     mcp,
@@ -54,26 +53,6 @@ class TestSearchDataDictionaryInput:
             SearchDataDictionaryInput(query="x" * 201)
 
 
-class TestSearchCleanedDatasetInput:
-    """Tests for SearchCleanedDatasetInput Pydantic model."""
-
-    def test_valid_dataset_search(self) -> None:
-        """Test that valid dataset searches are accepted."""
-        input_data = SearchCleanedDatasetInput(
-            variable="AGE",
-        )
-        assert input_data.variable == "AGE"
-        assert input_data.table_filter is None
-
-    def test_search_with_table_filter(self) -> None:
-        """Test search with table filter."""
-        input_data = SearchCleanedDatasetInput(
-            variable="SEX",
-            table_filter="Index",
-        )
-        assert input_data.table_filter == "Index"
-
-
 class TestCombinedSearchInput:
     """Tests for CombinedSearchInput Pydantic model."""
 
@@ -83,15 +62,6 @@ class TestCombinedSearchInput:
             concept="smoking status",
         )
         assert "smoking" in input_data.concept
-        assert input_data.include_statistics is True
-
-    def test_combined_search_without_statistics(self) -> None:
-        """Test combined search without statistics."""
-        input_data = CombinedSearchInput(
-            concept="HIV status",
-            include_statistics=False,
-        )
-        assert input_data.include_statistics is False
 
 
 class TestToolRegistry:
@@ -111,32 +81,30 @@ class TestToolRegistry:
     def test_registry_contains_registered_tools(self) -> None:
         """Test that registry lists registered tools.
 
-        Tool Selection Guide:
-        - combined_search: DEFAULT for ALL queries (searches ALL data sources)
-        - search_data_dictionary: ONLY for variable definitions (no statistics)
-        - search_cleaned_dataset: Direct query when variable name is known
-        - prompt_enhancer: Analyzes and enhances user queries
+        Tool Selection Guide (v0.3.0 - Dictionary Expert):
+        - prompt_enhancer: PRIMARY ENTRY POINT (routes queries)
+        - combined_search: DEFAULT variable discovery with concept expansion
+        - search_data_dictionary: Direct variable lookup by keyword
         """
         registry = get_tool_registry()
         assert "registered_tools" in registry
         tools = registry["registered_tools"]
-        # Primary tool (default for all queries)
-        assert "combined_search" in tools
-        # Supporting tools
-        assert "search_data_dictionary" in tools
-        assert "search_cleaned_dataset" in tools
+        # All 3 tools
         assert "prompt_enhancer" in tools
+        assert "combined_search" in tools
+        assert "search_data_dictionary" in tools
 
     def test_registry_contains_data_loaded_info(self) -> None:
-        """Test that registry shows data loaded statistics."""
+        """Test that registry shows data dictionary loaded info (metadata only)."""
         registry = get_tool_registry()
         assert "data_loaded" in registry
         data = registry["data_loaded"]
         assert "dictionary_tables" in data
         assert "dictionary_fields" in data
         assert "codelists" in data
-        assert "cleaned_tables" in data
-        assert "cleaned_records" in data
+        # v0.3.0: No dataset loading - dictionary only
+        assert "cleaned_tables" not in data
+        assert "cleaned_records" not in data
 
     def test_registry_contains_resources(self) -> None:
         """Test that registry lists MCP resources."""
@@ -165,14 +133,14 @@ class TestMCPServer:
 
 
 class TestSecurityModel:
-    """Tests for security model - all tools return aggregates only."""
+    """Tests for security model - metadata only, no patient data."""
 
-    def test_tools_designed_for_aggregates(self) -> None:
-        """Test that tool registry confirms aggregate-only design."""
+    def test_tools_designed_for_metadata_only(self) -> None:
+        """Test that tool registry confirms metadata-only design (v0.3.0)."""
         registry = get_tool_registry()
-        # Tools are designed to only return aggregate data
-        # This is enforced in the tool implementations
-        assert len(registry["registered_tools"]) == 4
+        # v0.3.0: Dictionary Expert - metadata only, no patient data
+        assert len(registry["registered_tools"]) == 3
+        assert registry.get("server_type") == "data_dictionary_expert"
 
     @pytest.mark.parametrize(
         "safe_query",
@@ -190,21 +158,6 @@ class TestSecurityModel:
         """Test that dictionary search accepts valid queries."""
         input_data = SearchDataDictionaryInput(query=safe_query)
         assert input_data.query == safe_query
-
-    @pytest.mark.parametrize(
-        "variable",
-        [
-            "AGE",
-            "SEX",
-            "SMOKHX",
-            "HIV_R",
-            "OUTCLIN",
-        ],
-    )
-    def test_dataset_accepts_valid_variables(self, variable: str) -> None:
-        """Test that dataset search accepts valid variable names."""
-        input_data = SearchCleanedDatasetInput(variable=variable)
-        assert input_data.variable == variable
 
     @pytest.mark.parametrize(
         "concept",

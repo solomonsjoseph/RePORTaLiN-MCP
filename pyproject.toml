@@ -7,8 +7,8 @@
 
 [project]
 name = "reportalin-mcp"
-version = "2.1.0"
-description = "Production-ready Model Context Protocol (MCP) server for RePORTaLiN clinical data system"
+version = "0.3.0"
+description = "Data Dictionary Expert MCP server for RePORT India TB clinical research - variable discovery and metadata lookup"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
@@ -16,12 +16,13 @@ authors = [
     { name = "RePORTaLiN Team" }
 ]
 keywords = [
-    "mcp", 
-    "model-context-protocol", 
-    "clinical-data", 
-    "de-identification", 
-    "hipaa", 
-    "dpdpa",
+    "mcp",
+    "model-context-protocol",
+    "data-dictionary",
+    "variable-discovery",
+    "research-metadata",
+    "tuberculosis",
+    "clinical-research",
     "agentic-ai"
 ]
 classifiers = [
@@ -65,21 +66,13 @@ dependencies = [
     
     # Environment management
     "python-dotenv>=1.0.0,<2.0.0",
-    
-    # Data processing (from original project)
-    "pandas>=2.0.0,<3.0.0",
-    "numpy>=1.24.0,<3.0.0",
-    "openpyxl>=3.1.0,<4.0.0",
-    
+
     # Security
     "cryptography>=41.0.0,<45.0.0",
-    
+
     # CLI enhancements
     "typer>=0.12.0,<1.0.0",
     "rich>=13.0.0,<14.0.0",
-    
-    # Data pipeline utilities (preserved from requirements.txt)
-    "tqdm>=4.66.0,<5.0.0",
     "argcomplete>=3.0.0,<4.0.0",
 ]
 
@@ -109,7 +102,13 @@ dev = [
 # Type stubs for mypy
 types = [
     "types-requests>=2.31.0",
-    "pandas-stubs>=2.0.0",
+]
+
+# Data preparation (optional - for generating JSONL files from Excel)
+data-prep = [
+    "pandas>=2.0.0,<3.0.0",
+    "openpyxl>=3.1.0,<4.0.0",
+    "tqdm>=4.66.0,<5.0.0",
 ]
 
 # Documentation
@@ -264,8 +263,6 @@ pretty = true
 [[tool.mypy.overrides]]
 module = [
     "mcp.*",
-    "pandas.*",
-    "numpy.*",
 ]
 ignore_missing_imports = true
 

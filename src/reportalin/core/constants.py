@@ -44,7 +44,7 @@ __all__ = [
 
 # Server identification
 SERVER_NAME = "reportalin-mcp"
-SERVER_VERSION = "2.1.0"
+SERVER_VERSION = "0.3.0"
 # MCP Protocol version - updated to latest stable (March 2025)
 # See: https://spec.modelcontextprotocol.io/specification/
 PROTOCOL_VERSION = "2025-03-26"

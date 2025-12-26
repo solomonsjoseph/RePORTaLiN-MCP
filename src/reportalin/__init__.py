@@ -11,7 +11,7 @@ Version Information:
 
 import re
 
-__version__: str = "2.1.0"
+__version__: str = "0.3.0"
 
 # Validate semantic versioning format
 if not re.match(r"^\d+\.\d+\.\d+$", __version__):

@@ -90,11 +90,14 @@ def test_settings_load():
 
 @pytest.mark.asyncio
 async def test_tools_registered():
-    """Test that all expected tools are registered (10 tools total).
+    """Test that all expected tools are registered (3 tools total - v0.3.0).
+
+    v0.3.0 - Data Dictionary Expert: Metadata only, NO patient data.
 
     Tool Selection Guide:
-    - combined_search: DEFAULT for ALL queries (searches ALL data sources)
-    - search_data_dictionary: ONLY for variable definitions (no statistics)
+    - prompt_enhancer: PRIMARY ENTRY POINT (routes queries with confirmation)
+    - combined_search: DEFAULT for variable discovery (concept expansion)
+    - search_data_dictionary: Direct variable lookup (metadata only)
     """
     from reportalin.server.tools import mcp
 
@@ -102,22 +105,22 @@ async def test_tools_registered():
 
     tool_names = [t.name for t in tools]
 
-    # Verify the 10 secure tools exist
-    # Primary tools
-    assert "combined_search" in tool_names  # DEFAULT for all queries
-    assert "natural_language_query" in tool_names
-    assert "cohort_summary" in tool_names
-    assert "cross_tabulation" in tool_names
-    # Detailed analysis tools
-    assert "variable_details" in tool_names
-    assert "data_quality_report" in tool_names
-    assert "multi_variable_comparison" in tool_names
-    # Supporting tools
-    assert "search_data_dictionary" in tool_names  # Variable definitions ONLY
-    assert "search_cleaned_dataset" in tool_names
-    assert "search_original_dataset" in tool_names
+    # v0.3.0: Verify the 3 data dictionary tools exist
+    assert "prompt_enhancer" in tool_names  # PRIMARY entry point
+    assert "combined_search" in tool_names  # DEFAULT for variable discovery
+    assert "search_data_dictionary" in tool_names  # Direct variable lookup
 
-    # Verify old tools are NOT present (security check)
+    # Verify old dataset/statistics tools are NOT present (v0.3.0 removed)
+    assert "search_cleaned_dataset" not in tool_names  # Removed in v0.3.0
+    assert "search_original_dataset" not in tool_names
+    assert "natural_language_query" not in tool_names
+    assert "cohort_summary" not in tool_names
+    assert "cross_tabulation" not in tool_names
+    assert "variable_details" not in tool_names
+    assert "data_quality_report" not in tool_names
+    assert "multi_variable_comparison" not in tool_names
+
+    # Verify deprecated tools are NOT present (security check)
     assert "query_database" not in tool_names
     assert "search_dictionary" not in tool_names
     assert "fetch_metrics" not in tool_names
@@ -127,8 +130,8 @@ async def test_tools_registered():
     assert "build_technical_request" not in tool_names
     assert "health_check" not in tool_names
 
-    # Verify we have exactly 10 tools
-    assert len(tool_names) == 10
+    # v0.3.0: Verify we have exactly 3 tools (Data Dictionary Expert)
+    assert len(tool_names) == 3
 
 
 @pytest.mark.asyncio

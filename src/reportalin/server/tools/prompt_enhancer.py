@@ -1,30 +1,28 @@
 """Intelligent Query Enhancement and Routing Tool.
 
 This tool acts as the PRIMARY ENTRY POINT for all user queries. It:
-1. Analyzes user intent (clinical query vs variable discovery)
+1. Analyzes user intent (variable discovery)
 2. Enhances vague queries for accuracy using structured decomposition
-3. Ensures privacy compliance (deidentified data only)
-4. Routes to appropriate specialized tools
-5. CRITICAL: Always confirms understanding with user BEFORE executing
+3. Routes to appropriate specialized tools (dictionary or concept search)
+4. CRITICAL: Always confirms understanding with user BEFORE executing
 
 The prompt enhancement leverages the LLM client's natural language understanding
 to break down vague queries into structured, accurate requests.
 
 Examples:
-    User: "How many TB patients?"
-    Enhanced: "Retrieve count of patients with TB diagnosis, grouped by cohort,
-               ensuring k-anonymity threshold is met. Use deidentified dataset."
+    User: "What variables for relapse analysis?"
+    Enhanced: "Search data dictionary for variables related to TB relapse,
+               recurrence, and treatment failure. Return variable names,
+               descriptions, and valid codes."
 
-    User: "What variables track HIV status?"
+    User: "HIV variables"
     Enhanced: "Search data dictionary for variables related to HIV diagnosis,
-               treatment, and lab results. Return variable names, definitions,
-               and codelists."
+               status, treatment (ART), and CD4 counts. Include codelists."
 
-Privacy Notes:
-    - All queries rewritten to use deidentified datasets by default
-    - Direct patient identifiers are never exposed
-    - Statistical queries checked for k-anonymity violations
-    - PHI/PII patterns are filtered from responses
+Metadata Only:
+    - Returns variable names, descriptions, types, and codelists
+    - No patient data or statistics
+    - Focus on helping researchers find the right variables
 """
 
 from __future__ import annotations
@@ -37,7 +35,6 @@ from reportalin.core.logging import get_logger
 from reportalin.server.tools._models import (
     CombinedSearchInput,
     PromptEnhancerInput,
-    SearchCleanedDatasetInput,
     SearchDataDictionaryInput,
 )
 
@@ -95,7 +92,6 @@ async def prompt_enhancer(
 
         # Import tools here to avoid circular imports
         from reportalin.server.tools.combined_search import combined_search
-        from reportalin.server.tools.search_cleaned_dataset import search_cleaned_dataset
         from reportalin.server.tools.search_data_dictionary import search_data_dictionary
 
         # Route based on intent
@@ -107,18 +103,10 @@ async def prompt_enhancer(
             )
             result = await search_data_dictionary(tool_input, ctx)
 
-        elif intent["primary_tool"] == "search_cleaned_dataset":
-            # Direct dataset query for known variables
-            tool_input = SearchCleanedDatasetInput(
-                variable=intent["enhanced_query"],
-            )
-            result = await search_cleaned_dataset(tool_input, ctx)
-
         else:
-            # DEFAULT: combined_search for most analytical queries
+            # DEFAULT: combined_search for variable discovery with concept mapping
             tool_input = CombinedSearchInput(
                 concept=intent["enhanced_query"],
-                include_statistics=True,
             )
             result = await combined_search(tool_input, ctx)
 

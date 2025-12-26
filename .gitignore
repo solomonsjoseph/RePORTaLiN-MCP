@@ -109,7 +109,7 @@ tmp/**
 
 # Results output directory (regenerated, may contain sensitive data)
 /results/dataset/
-# /results/data_dictionary_mappings/
+/results/data_dictionary_mappings/
 
 # Claude desktop config (user-specific)
 claude_desktop_config.json

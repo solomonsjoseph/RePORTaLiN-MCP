@@ -114,19 +114,14 @@ uv run python verify.py --token your-secret-token
 ```
 🔍 Verifying MCP Server at: http://localhost:8000/mcp/sse
 
-✅ System Online: Found 10 tools
+✅ System Online: Found 3 tools (v0.3.0 - Data Dictionary Expert)
 
 📋 Available Tools:
-   • combined_search (DEFAULT - use for all queries)
-   • natural_language_query
-   • cohort_summary
-   • cross_tabulation
-   • variable_details
-   • data_quality_report
-   • multi_variable_comparison
-   • search_data_dictionary (variable definitions only)
-   • search_cleaned_dataset
-   • search_original_dataset
+   • prompt_enhancer (PRIMARY - use for all queries)
+   • combined_search (DEFAULT - variable discovery with concept expansion)
+   • search_data_dictionary (direct variable lookup - metadata only)
+
+ℹ️  This server provides METADATA ONLY - NO patient data or statistics
 ```
 
 **Failure:**

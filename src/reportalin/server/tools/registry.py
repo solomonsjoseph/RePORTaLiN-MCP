@@ -1,7 +1,7 @@
 """FastMCP server setup and tool registry for RePORTaLiN.
 
 This module configures the FastMCP server instance and registers:
-- 4 MCP tools (prompt_enhancer, combined_search, search_data_dictionary, search_cleaned_dataset)
+- 3 MCP tools (prompt_enhancer, combined_search, search_data_dictionary)
 - 6 MCP resources (study overview, tables, codelists, etc.)
 - 4 MCP prompts (research templates and analysis guides)
 """
@@ -16,14 +16,11 @@ from reportalin.core.constants import SERVER_NAME, SERVER_VERSION
 from reportalin.core.config import get_settings
 from reportalin.core.logging import get_logger
 from reportalin.server.tools._loaders import (
-    get_cleaned_dataset,
     get_codelists,
     get_data_dictionary,
-    get_original_dataset,
 )
 from reportalin.server.tools.combined_search import combined_search
 from reportalin.server.tools.prompt_enhancer import prompt_enhancer
-from reportalin.server.tools.search_cleaned_dataset import search_cleaned_dataset
 from reportalin.server.tools.search_data_dictionary import search_data_dictionary
 
 __all__ = [
@@ -41,9 +38,11 @@ logger = get_logger(__name__)
 settings = get_settings()
 
 SYSTEM_INSTRUCTIONS = """
-RePORTaLiN MCP Server - Secure Clinical Data Analysis for RePORT India TB Study
+RePORTaLiN MCP Server - Data Dictionary Expert for RePORT India TB Study
 
-This server provides access to the RePORT India (Indo-VAP) tuberculosis cohort study data.
+This server provides access to the RePORT India (Indo-VAP) tuberculosis cohort study
+data dictionary and variable mappings. Find the right variables for your research questions.
+
 RePORT India is a multi-site prospective observational cohort studying TB treatment outcomes,
 comorbidities (HIV, diabetes, malnutrition), and risk factors (smoking, alcohol) in India.
 
@@ -62,7 +61,7 @@ The prompt_enhancer tool will:
 User Query → prompt_enhancer (interprets + confirms) → Appropriate Tool → Results
 ```
 
-## Available Tools (4 Total)
+## Available Tools (3 Total)
 
 ### PRIMARY TOOL - Use This First
 
@@ -75,21 +74,16 @@ User Query → prompt_enhancer (interprets + confirms) → Appropriate Tool → 
 
 ### Specialized Tools (Auto-selected by prompt_enhancer)
 
-2. **combined_search** - DEFAULT for analytical questions
-   - Searches ALL data sources (dictionary + cleaned dataset)
-   - Automatically finds variables AND retrieves statistics
-   - USE FOR: "How many have diabetes?", "Age distribution", "HIV statistics"
+2. **combined_search** - DEFAULT for variable discovery
+   - Searches data dictionary and codelists
+   - Uses intelligent concept synonym mapping
+   - USE FOR: "What variables for relapse analysis?", "Diabetes variables", "TB outcomes"
    - Handles most queries automatically
 
-3. **search_data_dictionary** - Metadata lookup ONLY
+3. **search_data_dictionary** - Direct variable lookup
    - Returns variable definitions, codelists, field names
-   - NO statistics - metadata only
+   - Precise search by variable name or keyword
    - USE FOR: "What variables exist for X?", "What does variable Y mean?"
-
-4. **search_cleaned_dataset** - Direct dataset query
-   - Query specific variables when exact names are known
-   - Returns aggregate statistics only
-   - USE FOR: Direct queries when variable names are already known
 
 ## Available Resources (6 Total)
 
@@ -116,13 +110,15 @@ Common research areas:
 - Demographics: age, sex, site
 - Follow-up visits: baseline, month 2, 6, 12, 24
 
-## Security Rules
+## What This Server Provides
 
-- NEVER expose individual patient data
-- ONLY report aggregate statistics (counts, means, percentages)
-- Variable names are SAFE to share
-- Raw values are summarized, not exposed directly
-- All queries use DEIDENTIFIED data only (no PHI/PII)
+- Variable names and descriptions
+- Data dictionary field definitions
+- Codelist values (valid codes and their meanings)
+- CRF form → Database table mappings
+- Clinical concept synonym expansion
+
+This server ONLY provides metadata - no patient data or statistics.
 """
 
 mcp = FastMCP(
@@ -136,11 +132,10 @@ mcp = FastMCP(
 # Register MCP Tools
 # =============================================================================
 
-# Register the 4 tools with FastMCP
+# Register the 3 tools with FastMCP
 mcp.tool()(prompt_enhancer)
 mcp.tool()(combined_search)
 mcp.tool()(search_data_dictionary)
-mcp.tool()(search_cleaned_dataset)
 
 
 # =============================================================================
@@ -150,41 +145,28 @@ mcp.tool()(search_cleaned_dataset)
 
 @mcp.resource("dictionary://overview")
 def get_study_overview() -> str:
-    """Overview of the RePORT India study data."""
+    """Overview of the RePORT India study data dictionary."""
     data_dict = get_data_dictionary()
     codelists = get_codelists()
-    cleaned = get_cleaned_dataset()
-    original = get_original_dataset()
 
     dict_fields = sum(len(r) for r in data_dict.values())
-    cleaned_records = sum(len(r) for r in cleaned.values())
-    original_records = sum(len(r) for r in original.values())
 
-    return f"""RePORT India (Indo-VAP) Study Overview
+    return f"""RePORT India (Indo-VAP) Study Data Dictionary
 
 Data Dictionary:
 - Tables defined: {len(data_dict)}
 - Total fields: {dict_fields}
 - Codelists: {len(codelists)}
 
-Cleaned Dataset (Deidentified):
-- Tables: {len(cleaned)}
-- Total records: {cleaned_records}
-
-Original Dataset (Deidentified):
-- Tables: {len(original)}
-- Total records: {original_records}
-
 TOOL SELECTION GUIDE:
 - For ANY question → Start with `prompt_enhancer` (it will route for you)
-- For analytical queries → `combined_search` searches ALL data sources
-- For metadata only → `search_data_dictionary`
+- For variable discovery → `combined_search` uses concept synonym mapping
+- For direct lookup → `search_data_dictionary`
 
-Available Tools (4):
+Available Tools (3):
 1. prompt_enhancer - INTELLIGENT ROUTER: Analyzes query, confirms with you, routes automatically
-2. combined_search - DEFAULT: Searches ALL data sources for statistics
-3. search_data_dictionary - Variable definitions ONLY (no statistics)
-4. search_cleaned_dataset - Direct query to cleaned deidentified data
+2. combined_search - DEFAULT: Searches dictionary and codelists with concept expansion
+3. search_data_dictionary - Variable definitions by keyword
 
 Available Resources (6):
 - dictionary://overview - This overview
@@ -200,24 +182,18 @@ Available Prompts (4):
 - statistical_analysis_template - Statistical analysis patterns
 - tb_outcome_analysis - TB outcome specific guidance
 
-Security: All tools return aggregates only. Individual records are never exposed.
-Privacy: Only deidentified data is accessible (no PHI/PII).
+This server provides metadata only - no patient data or statistics.
 """
 
 
 @mcp.resource("dictionary://tables")
 def list_tables() -> str:
-    """List all available tables."""
+    """List all available tables in the data dictionary."""
     data_dict = get_data_dictionary()
-    cleaned = get_cleaned_dataset()
 
     output = ["Data Dictionary Tables:"]
     for name, records in sorted(data_dict.items()):
         output.append(f"  - {name}: {len(records)} fields")
-
-    output.append("\nCleaned Dataset Tables (Deidentified):  ")
-    for name, records in sorted(cleaned.items()):
-        output.append(f"  - {name}: {len(records)} records")
 
     return "\n".join(output)
 
@@ -374,8 +350,8 @@ def get_variables_by_category(category: str) -> str:
 
 @mcp.prompt()
 def research_question_template() -> str:
-    """Template prompt for answering research questions about the TB cohort."""
-    return """You are analyzing the RePORT India TB cohort study data through a secure MCP server.
+    """Template prompt for finding variables for research questions about the TB cohort."""
+    return """You are accessing the RePORT India TB cohort study data dictionary through a secure MCP server.
 
 ## Study Background
 RePORT India (Indo-VAP) is a multi-site prospective observational cohort studying:
@@ -384,111 +360,128 @@ RePORT India (Indo-VAP) is a multi-site prospective observational cohort studyin
 - Risk factors (smoking, alcohol, malnutrition/BMI)
 - Demographics across multiple sites in India
 
-## How to Answer Questions
+## How to Find Variables for Your Research Question
 
 1. **First**, use `prompt_enhancer` with your question
    - It will analyze your query and confirm understanding
    - It will automatically route to the right tool
-   - Example: prompt_enhancer(user_query="What is HIV prevalence?")
+   - Example: prompt_enhancer(user_query="What variables for HIV analysis?")
 
 2. **Or**, use `combined_search` directly with the relevant clinical concept
    - Example: combined_search(concept="HIV status")
 
-3. **Interpret** the aggregate statistics returned
-   - Note sample sizes and percentages
-   - Consider missing data rates
+3. **Review** the variable definitions and codelists returned
+   - Note variable names, descriptions, and valid codes
+   - Check which database tables contain the variables
+   - Review codelist values for categorical variables
 
 ## Important Guidelines
-- Only discuss aggregate statistics (counts, percentages, means)
-- Never attempt to identify or discuss individual participants
-- Acknowledge limitations (missing data, study design)
-- Use exact variable names when querying specific fields
-- All data is deidentified (no PHI/PII)
+- This server provides METADATA only (variable definitions, not patient data)
+- Use the returned variable names in your analysis plan
+- Review codelists to understand valid values for categorical variables
+- Note which CRF forms and database tables contain each variable
 
 ## Example Workflow
-Question: "What is the HIV prevalence in the cohort?"
-1. Use prompt_enhancer(user_query="What is HIV prevalence?") OR combined_search(concept="HIV")
-2. Find the HIV status variable and its distribution
-3. Report: "X% of participants were HIV-positive (N=Y out of Z)"
+Question: "What variables should I use for HIV analysis?"
+1. Use prompt_enhancer(user_query="What variables for HIV analysis?") OR combined_search(concept="HIV")
+2. Find HIV-related variables (e.g., HIVSTAT, CD4 counts, ART variables)
+3. Review the variable descriptions and codelists
+4. Use these variable names in your data analysis
 """
 
 
 @mcp.prompt()
 def data_exploration_guide() -> str:
-    """Guide for exploring the available data."""
-    return """# Data Exploration Guide for RePORT India Study
+    """Guide for exploring the available data dictionary."""
+    return """# Data Dictionary Exploration Guide for RePORT India Study
 
-## Step 1: Understand Available Data
-- Use resource `dictionary://overview` for study summary
+## Step 1: Understand Available Variables
+- Use resource `dictionary://overview` for data dictionary summary
 - Use resource `dictionary://tables` for available tables
 - Use resource `dictionary://codelists` for categorical value definitions
 
-## Step 2: Ask Questions
+## Step 2: Ask Questions About Variables
 - Use `prompt_enhancer` for ANY question (it will guide you)
-- Example: prompt_enhancer(user_query="What data is available about smoking?")
+- Example: prompt_enhancer(user_query="What variables are available for smoking?")
 
-## Step 3: Find Variables
+## Step 3: Find Specific Variables
 - Use `search_data_dictionary(query="your term")` to find fields
 - Common searches: "HIV", "diabetes", "smoking", "outcome", "age", "BMI"
 
-## Step 4: Get Statistics
-- Use `combined_search(concept="topic")` for automatic analysis
-- Use `search_cleaned_dataset(variable="exact_name")` for specific fields
+## Step 4: Discover Variables by Clinical Concept
+- Use `combined_search(concept="topic")` for intelligent concept-based search
+- Example: combined_search(concept="relapse") finds variables for relapse analysis
 
 ## Tips
 - Start with prompt_enhancer - it will interpret and route for you
 - Variable names are often abbreviated (e.g., "SMOKHX" for smoking history)
-- Check codelists to understand categorical values
-- All data is deidentified for privacy protection
+- Check codelists to understand valid codes for categorical variables
+- This server provides metadata only - use variable names in your own analysis
 """
 
 
 @mcp.prompt()
 def statistical_analysis_template() -> str:
-    """Template for conducting statistical analyses."""
-    return """# Statistical Analysis Template
+    """Template for finding variables for statistical analyses."""
+    return """# Variable Discovery Template for Analysis Planning
 
-## Descriptive Statistics
-1. **Demographics**: Use prompt_enhancer or combined_search("demographics")
-2. **Continuous variables**: Look for mean, median, std_dev, min, max
-3. **Categorical variables**: Look for value_counts with percentages
+## Finding Variables for Your Analysis
 
-## Common Analysis Patterns
-
-### Prevalence calculation
+### 1. Demographics
 ```
-prompt_enhancer(user_query="What is HIV prevalence?")
+prompt_enhancer(user_query="What demographic variables are available?")
 # OR
+combined_search(concept="demographics")
+# Find age, sex, site, enrollment date variables
+```
+
+### 2. Clinical Outcomes
+```
+search_data_dictionary(query="outcome")
+# Returns TB outcome variables and their definitions
+```
+
+### 3. Risk Factors
+```
+combined_search(concept="diabetes")
+# Find all diabetes-related variables (glucose, HbA1c, diagnosis, etc.)
+```
+
+## Common Variable Discovery Patterns
+
+### For Prevalence Studies
+```
+# Find HIV status variable
 combined_search(concept="HIV")
-# Look at categorical distribution
-# Prevalence = count of positive / total non-null
+# Review variable names and codelist values
+# Use variable names in your analysis code
 ```
 
-### Variable discovery
+### For Longitudinal Analysis
 ```
-search_data_dictionary(query="diabetes")
-# Returns variable names and definitions
-```
-
-### Distribution analysis
-```
-combined_search(concept="age distribution")
-# Returns statistics and histogram
+# Find follow-up visit variables
+combined_search(concept="follow-up")
+# Identify baseline, month 2, 6, 12, 24 variables
 ```
 
-## Limitations to Acknowledge
-- This is aggregate data only (no individual records)
-- Cannot perform multivariate analysis
-- Cannot assess statistical significance directly
-- Missing data may affect estimates
-- All data is deidentified
+### For Comorbidity Analysis
+```
+# Find comorbidity variables
+search_data_dictionary(query="comorbid")
+# Review all comorbidity fields
+```
+
+## Next Steps
+- Use the variable names returned to build your analysis dataset
+- Review codelists to understand categorical variable coding
+- This server provides metadata - conduct actual analysis in your environment
 """
 
 
 @mcp.prompt()
 def tb_outcome_analysis() -> str:
-    """Specific prompt for TB treatment outcome analysis."""
-    return """# TB Treatment Outcome Analysis Guide
+    """Specific prompt for finding TB treatment outcome variables."""
+    return """# TB Treatment Outcome Variable Discovery Guide
 
 ## Understanding TB Outcomes
 The WHO-defined TB treatment outcomes include:
@@ -499,11 +492,11 @@ The WHO-defined TB treatment outcomes include:
 - **Lost to Follow-up (LTFU)**: Treatment interrupted for ≥2 months
 - **Not Evaluated**: No outcome assigned
 
-## Analysis Steps
+## Finding Outcome Variables
 
-### 1. Get outcome distribution
+### 1. Discover outcome variables
 ```
-prompt_enhancer(user_query="What are the TB treatment outcomes?")
+prompt_enhancer(user_query="What variables capture TB treatment outcomes?")
 # OR
 combined_search(concept="treatment outcome")
 ```
@@ -514,11 +507,18 @@ combined_search(concept="treatment outcome")
 - TB_OUTCOME: Combined outcome
 - Look in 'outcome' or 'offstudy' tables
 
-## Reporting Results
-- Report sample sizes with percentages
-- Compare favorable (cure + completed) vs unfavorable outcomes
-- Note differences across subgroups
-- Remember: all data is deidentified aggregates only
+### 3. Review codelist values
+```
+# Check the codelist for outcome variables
+# Review valid codes and their meanings
+# Example: 1=Cured, 2=Completed, 3=Failure, 4=Died, 5=LTFU
+```
+
+## Using Variables in Your Analysis
+- Use the variable names in your dataset queries
+- Apply the codelist codes to categorize outcomes
+- Group favorable (cure + completed) vs unfavorable outcomes
+- This server provides metadata - conduct analysis in your environment
 """
 
 
@@ -531,17 +531,14 @@ def get_tool_registry() -> dict[str, Any]:
     """Get summary of registered tools, resources, and prompts."""
     data_dict = get_data_dictionary()
     codelists = get_codelists()
-    cleaned = get_cleaned_dataset()
-    original = get_original_dataset()
 
     return {
         "server_name": SERVER_NAME,
         "version": SERVER_VERSION,
         "registered_tools": [
-            "prompt_enhancer",  # NEW - Primary entry point
-            "combined_search",  # DEFAULT for analytical queries
-            "search_data_dictionary",  # Metadata only
-            "search_cleaned_dataset",  # Direct dataset query
+            "prompt_enhancer",  # Primary entry point
+            "combined_search",  # DEFAULT for variable discovery
+            "search_data_dictionary",  # Direct lookup
         ],
         "registered_resources": [
             # Overview resources
@@ -563,10 +560,6 @@ def get_tool_registry() -> dict[str, Any]:
             "dictionary_tables": len(data_dict),
             "dictionary_fields": sum(len(r) for r in data_dict.values()),
             "codelists": len(codelists),
-            "cleaned_tables": len(cleaned),
-            "cleaned_records": sum(len(r) for r in cleaned.values()),
-            "original_tables": len(original),
-            "original_records": sum(len(r) for r in original.values()),
         },
         "capabilities": {
             "tools": True,
@@ -574,7 +567,7 @@ def get_tool_registry() -> dict[str, Any]:
             "prompts": True,
             "subscriptions": False,
         },
-        "privacy_model": "deidentified_only",
-        "tool_count": 4,
+        "server_type": "data_dictionary_expert",
+        "tool_count": 3,
         "primary_entry_point": "prompt_enhancer",
     }

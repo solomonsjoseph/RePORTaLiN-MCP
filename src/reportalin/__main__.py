@@ -10,7 +10,7 @@ import sys
 
 def main() -> int:
     """Main entry point for the reportalin CLI."""
-    print("RePORTaLiN v2.1.0")
+    print("RePORTaLiN v0.3.0")
     print("Available commands:")
     print("  reportalin-mcp     - Start the MCP server")
     print("  reportalin-client  - Start the MCP client")

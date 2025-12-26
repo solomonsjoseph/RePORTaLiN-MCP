@@ -295,7 +295,7 @@ class TestToolExecutionSecurity:
       7. multi_variable_comparison - Side-by-side statistics
     - SUPPORTING TOOLS (specific needs only):
       8. search_data_dictionary - Variable definitions ONLY (no statistics)
-      9. search_cleaned_dataset - Direct query when variable known
+      # v0.3.0: search_cleaned_dataset removed - dictionary only
       10. search_original_dataset - Fallback to original data
 
     All tools return AGGREGATE data only - never individual records.
@@ -320,7 +320,8 @@ class TestToolExecutionSecurity:
         assert "multi_variable_comparison" in registry["registered_tools"]
         # Supporting tools
         assert "search_data_dictionary" in registry["registered_tools"]
-        assert "search_cleaned_dataset" in registry["registered_tools"]
+        # v0.3.0: search_cleaned_dataset removed
+        # assert "search_cleaned_dataset" in registry["registered_tools"]
         assert "search_original_dataset" in registry["registered_tools"]
 
     @pytest.mark.asyncio
