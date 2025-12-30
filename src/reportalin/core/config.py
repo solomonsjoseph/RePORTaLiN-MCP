@@ -59,12 +59,9 @@ from reportalin.core.constants import (
 )
 
 # =============================================================================
-# Data Pipeline Path Constants
+# Data Dictionary Path Constants
 # =============================================================================
-# These constants are used by the data extraction and de-identification modules
-
-DEFAULT_DATASET_NAME = "RePORTaLiN_sample"
-DATASET_SUFFIXES = ("_csv_files", "_files")
+# Path configuration for the data dictionary pipeline
 
 
 def _get_project_root_for_paths() -> str:
@@ -76,44 +73,10 @@ def _get_project_root_for_paths() -> str:
     return str(current.parent.parent.parent)
 
 
-def _get_dataset_folder(dataset_base_dir: str) -> str | None:
-    """Detect first dataset folder in data/dataset/."""
-    if not os.path.exists(dataset_base_dir):
-        return None
-    try:
-        folders = [
-            f for f in os.listdir(dataset_base_dir)
-            if os.path.isdir(os.path.join(dataset_base_dir, f))
-            and not f.startswith(".")
-        ]
-        return sorted(folders)[0] if folders else None
-    except (OSError, PermissionError):
-        return None
-
-
-def _normalize_dataset_name(folder_name: str | None) -> str:
-    """Normalize dataset folder name by removing common suffixes."""
-    if not folder_name:
-        return DEFAULT_DATASET_NAME
-    name = folder_name.strip()
-    if not name:
-        return DEFAULT_DATASET_NAME
-    matching_suffixes = [s for s in DATASET_SUFFIXES if name.endswith(s)]
-    if matching_suffixes:
-        longest_suffix = max(matching_suffixes, key=len)
-        name = name[: -len(longest_suffix)]
-    return name.strip() if name.strip() else DEFAULT_DATASET_NAME
-
-
 # Initialize path constants
 ROOT_DIR = _get_project_root_for_paths()
 DATA_DIR = os.path.join(ROOT_DIR, "data")
 RESULTS_DIR = os.path.join(ROOT_DIR, "results")
-DATASET_BASE_DIR = os.path.join(DATA_DIR, "dataset")
-DATASET_FOLDER_NAME = _get_dataset_folder(DATASET_BASE_DIR)
-DATASET_DIR = os.path.join(DATASET_BASE_DIR, DATASET_FOLDER_NAME or DEFAULT_DATASET_NAME)
-DATASET_NAME = _normalize_dataset_name(DATASET_FOLDER_NAME)
-CLEAN_DATASET_DIR = os.path.join(RESULTS_DIR, "dataset", DATASET_NAME)
 DICTIONARY_EXCEL_FILE = os.path.join(
     DATA_DIR,
     "data_dictionary_and_mapping_specifications",
@@ -123,12 +86,12 @@ DICTIONARY_JSON_OUTPUT_DIR = os.path.join(RESULTS_DIR, "data_dictionary_mappings
 
 # Logging defaults
 LOG_LEVEL = logging.INFO
-LOG_NAME = "reportalin-specialist"
+LOG_NAME = "reportalin-mcp"
 
 
 def ensure_directories() -> None:
     """Create necessary directories if they don't exist."""
-    directories = [RESULTS_DIR, CLEAN_DATASET_DIR, DICTIONARY_JSON_OUTPUT_DIR]
+    directories = [RESULTS_DIR, DICTIONARY_JSON_OUTPUT_DIR]
     for directory in directories:
         os.makedirs(directory, exist_ok=True)
 
@@ -139,8 +102,6 @@ def validate_config() -> list[str]:
     try:
         if not os.path.exists(DATA_DIR):
             warnings.append(f"Data directory not found: {DATA_DIR}")
-        if not os.path.exists(DATASET_DIR):
-            warnings.append(f"Dataset directory not found: {DATASET_DIR}")
         if not os.path.exists(DICTIONARY_EXCEL_FILE):
             warnings.append(f"Data dictionary file not found: {DICTIONARY_EXCEL_FILE}")
     except (OSError, PermissionError) as e:

@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "reportalin-mcp": {
+      "type": "stdio",
+      "command": "/Users/YOUR_USERNAME/Documents/VSCode_files/gitRepo/Work/RePORTaLiN-Agent/.venv/bin/python",
+      "args": [
+        "-m",
+        "reportalin.server",
+        "--transport",
+        "stdio"
+      ],
+      "cwd": "/Users/YOUR_USERNAME/Documents/VSCode_files/gitRepo/Work/RePORTaLiN-Agent",
+      "env": {
+        "REPORTALIN_PRIVACY_MODE": "strict",
+        "NO_COLOR": "1",
+        "TERM": "dumb",
+        "FORCE_COLOR": "0",
+        "PYTHONUNBUFFERED": "1"
+      }
+    }
+  }
+}

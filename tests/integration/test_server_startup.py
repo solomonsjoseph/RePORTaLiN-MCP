@@ -157,7 +157,7 @@ async def test_tool_schemas():
 
 
 def test_tool_registry():
-    """Test the tool registry utility."""
+    """Test the tool registry utility (v0.3.0 - 3 tools)."""
     from reportalin.server.tools import get_tool_registry
     from reportalin.core.constants import SERVER_NAME, SERVER_VERSION
 
@@ -165,7 +165,7 @@ def test_tool_registry():
 
     assert registry["server_name"] == SERVER_NAME
     assert registry["version"] == SERVER_VERSION
-    assert len(registry["registered_tools"]) >= 4
+    assert len(registry["registered_tools"]) == 3  # v0.3.0: 3 tools only
 
 
 # =============================================================================
@@ -219,7 +219,7 @@ async def test_tools_endpoint_requires_auth(configured_app):
 
 @pytest.mark.asyncio
 async def test_tools_endpoint_with_auth(configured_app):
-    """Test /tools endpoint with valid authentication."""
+    """Test /tools endpoint with valid authentication (v0.3.0 - 3 tools)."""
     transport = ASGITransport(app=configured_app)
     async with AsyncClient(
         transport=transport, base_url="http://localhost:8000"
@@ -231,7 +231,7 @@ async def test_tools_endpoint_with_auth(configured_app):
         assert response.status_code == 200
         data = response.json()
         assert "tools" in data
-        assert len(data["tools"]) >= 4
+        assert len(data["tools"]) == 3  # v0.3.0: 3 tools only
 
 
 # =============================================================================

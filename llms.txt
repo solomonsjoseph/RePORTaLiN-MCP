@@ -1,22 +1,29 @@
 # RePORTaLiN-Specialist
 
-> Privacy-preserving clinical data pipeline with MCP server for secure LLM integration. Provides PHI/PII de-identification, k-anonymity protected statistics, and encrypted audit logging for healthcare data processing.
+> LLM-Powered Variable Search for RePORT India TB Study. Better than SQL - understands clinical concepts and synonyms. Provides structured metadata for study design and variable discovery.
 
-## Tool Selection Guide
+## ONE TOOL - Simple & Powerful
 
-**DEFAULT: Use `combined_search` for ALL queries unless specifically asking about variable definitions.**
+**Use `search` for ALL variable discovery queries.**
 
-- For ANY analytical question → `combined_search`
-- For counts, statistics, distributions → `combined_search`  
-- For "how many", "what percentage" → `combined_search`
-- ONLY for "what variables exist?" → `search_data_dictionary`
+Examples:
+- `search("HIV status")` → finds HIV, CD4, ART variables
+- `search("relapse")` → finds relapse, recurrence, recur variables
+- `search("diabetes")` → finds DM, glucose, HbA1c variables
+- `search("treatment outcome")` → finds cure, failure, death variables
+
+## Why Better Than SQL
+
+1. **Understands Concepts**: "relapse" finds "recurrence", "recur", "recurrent"
+2. **Clinical Synonyms**: "diabetes" finds "DM", "glucose", "HbA1c", "OGTT"
+3. **Structured Output**: Returns field names, descriptions, codelists ready for analysis
+4. **Fast**: No complex SQL joins - instant concept-based search
 
 ## Documentation
 
 - [README](README.md): Project overview, quick start, and MCP tools reference
 - [MCP Server Setup](docs/MCP_SERVER_SETUP.md): Claude Desktop integration guide
 - [Configuration](docs/CONFIGURATION.md): Environment variables and settings reference
-- [Logging Architecture](docs/LOGGING_ARCHITECTURE.md): Encrypted audit logging design
 
 ## Security
 
@@ -25,10 +32,8 @@
 
 ## Configuration
 
-- [Environment Template](.env.example): Environment variable template
 - [Claude Desktop Config](claude_desktop_config.example.json): MCP server configuration example
 
 ## Optional
 
 - [Changelog](CHANGELOG.md): Version history and release notes
-- [License](LICENSE): MIT License terms

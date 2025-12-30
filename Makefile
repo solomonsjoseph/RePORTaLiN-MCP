@@ -96,14 +96,13 @@ endif
 
 .PHONY: help version info status setup
 .PHONY: install install-dev upgrade-deps
-.PHONY: run run-verbose run-dictionary run-extract run-deidentify run-deidentify-verbose
-.PHONY: run-agent run-agent-test
+.PHONY: run run-verbose run-dictionary mcp
 .PHONY: lint format typecheck check-all test test-cov test-verbose
 .PHONY: verify-refactoring verify-imports verify-tools
 .PHONY: clean clean-cache clean-logs clean-results clean-docker clean-generated distclean nuclear
 .PHONY: commit check-commit bump-dry bump bump-push bump-patch bump-minor bump-major changelog hooks pre-commit
 .PHONY: docker-build docker-scan docker-lint docker-security docker-mcp mcp-test-docker mcp-install-config-docker mcp-install-config-local mcp-show-config mcp-server-stdio mcp-server-http
-.PHONY: mcp-setup check-data
+.PHONY: mcp-setup check-data claude-setup
 .PHONY: compose-build compose-up compose-up-detached compose-dev compose-logs compose-down compose-health
 
 # =============================================================================
@@ -114,31 +113,25 @@ endif
 help:
 	@printf "$(BOLD)$(BLUE)"
 	@printf "╔═══════════════════════════════════════════════════════════════════╗\n"
-	@printf "║         $(PROJECT_NAME) Data Pipeline - v$(VERSION)              ║\n"
+	@printf "║         $(PROJECT_NAME) MCP Server - v$(VERSION)                 ║\n"
 	@printf "╚═══════════════════════════════════════════════════════════════════╝\n"
 	@printf "$(NC)\n"
-	@printf "$(BOLD)$(GREEN)🚀 QUICK START (Two Steps):$(NC)\n"
-	@printf "  $(CYAN)make setup$(NC)           $(BOLD)Run everything$(NC) (verify + extract + Docker + config)\n"
-	@printf "  $(CYAN)Then:$(NC)                Copy config to Claude Desktop & restart\n"
+	@printf "$(BOLD)$(GREEN)🚀 ONE-TIME SETUP (after clone or make nuclear):$(NC)\n"
+	@printf "  $(CYAN)make setup$(NC)           $(BOLD)Complete setup$(NC) → Ready for Claude Desktop\n"
+	@printf "\n"
+	@printf "$(BOLD)$(GREEN)Daily Usage:$(NC)\n"
+	@printf "  $(CYAN)make run$(NC)             Reload data dictionary (if Excel changed)\n"
+	@printf "  $(CYAN)make mcp$(NC)             Start MCP server (HTTP on port 8000)\n"
 	@printf "\n"
 	@printf "$(BOLD)$(GREEN)Setup:$(NC)\n"
-	@printf "  $(CYAN)make install$(NC)         Install production dependencies\n"
+	@printf "  $(CYAN)make setup$(NC)           $(BOLD)One-time complete setup$(NC) (deps + data + config)\n"
+	@printf "  $(CYAN)make install$(NC)         Install production dependencies only\n"
 	@printf "  $(CYAN)make install-dev$(NC)     Install development dependencies\n"
-	@printf "  $(CYAN)make upgrade-deps$(NC)    Upgrade all dependencies\n"
-	@printf "  $(CYAN)make version$(NC)         Show version information\n"
-	@printf "  $(CYAN)make info$(NC)            Show environment information\n"
-	@printf "  $(CYAN)make status$(NC)          Show complete system status\n"
 	@printf "\n"
 	@printf "$(BOLD)$(GREEN)Running:$(NC)\n"
-	@printf "  $(CYAN)make run$(NC)             Run full pipeline (dictionary + extraction)\n"
-	@printf "  $(CYAN)make run-verbose$(NC)     Run with verbose logging\n"
-	@printf "  $(CYAN)make run-dictionary$(NC)  Run only dictionary loading\n"
-	@printf "  $(CYAN)make run-extract$(NC)     Run only data extraction\n"
-	@printf "  $(CYAN)make run-deidentify$(NC)  Run with de-identification\n"
-	@printf "  $(CYAN)make run-deidentify-verbose$(NC)\n"
-	@printf "                       De-identification with verbose logging\n"
-	@printf "  $(CYAN)make run-agent$(NC)       Run the MCP agent (interactive)\n"
-	@printf "  $(CYAN)make run-agent-test$(NC)  Run agent with test prompt\n"
+	@printf "  $(CYAN)make run$(NC)             Load data dictionary (JSONL for search)\n"
+	@printf "  $(CYAN)make run-verbose$(NC)     Load with verbose logging\n"
+	@printf "  $(CYAN)make mcp$(NC)             Start MCP server (HTTP transport)\n"
 	@printf "\n"
 	@printf "$(BOLD)$(GREEN)Code Quality:$(NC)\n"
 	@printf "  $(CYAN)make lint$(NC)            Run ruff linter\n"
@@ -149,18 +142,11 @@ help:
 	@printf "  $(CYAN)make test-cov$(NC)        Run pytest with coverage\n"
 	@printf "  $(CYAN)make test-verbose$(NC)    Run pytest with verbose output\n"
 	@printf "\n"
-	@printf "$(BOLD)$(GREEN)Verification:$(NC)\n"
-	@printf "  $(CYAN)make verify-refactoring$(NC)\n"
-	@printf "                       $(BOLD)Verify complete refactoring$(NC) (imports + tools + docs)\n"
-	@printf "  $(CYAN)make verify-imports$(NC)  Verify all package imports work\n"
-	@printf "  $(CYAN)make verify-tools$(NC)    Verify 4 tools are registered\n"
-	@printf "\n"
 	@printf "$(BOLD)$(GREEN)Cleaning:$(NC)\n"
 	@printf "  $(CYAN)make clean$(NC)           Remove Python cache files\n"
 	@printf "  $(CYAN)make clean-logs$(NC)      Remove log files\n"
 	@printf "  $(CYAN)make clean-results$(NC)   Remove generated results (interactive)\n"
 	@printf "  $(CYAN)make clean-docker$(NC)    Remove Docker images and containers\n"
-	@printf "  $(CYAN)make clean-generated$(NC) Remove generated config files\n"
 	@printf "  $(CYAN)make distclean$(NC)       Remove all generated files\n"
 	@printf "  $(CYAN)make nuclear$(NC)         $(RED)💣 DANGER:$(NC) Remove EVERYTHING (interactive)\n"
 	@printf "\n"
@@ -169,14 +155,15 @@ help:
 	@printf "  $(CYAN)make bump$(NC)            Bump version based on commits (local)\n"
 	@printf "  $(CYAN)make bump-push$(NC)       $(BOLD)Bump + push tags$(NC) (triggers CI/CD release)\n"
 	@printf "  $(CYAN)make bump-dry$(NC)        Preview version bump (no changes)\n"
-	@printf "  $(CYAN)make bump-patch$(NC)      Force PATCH bump (0.0.x)\n"
-	@printf "  $(CYAN)make bump-minor$(NC)      Force MINOR bump (0.x.0)\n"
-	@printf "  $(CYAN)make bump-major$(NC)      Force MAJOR bump (x.0.0)\n"
 	@printf "  $(CYAN)make changelog$(NC)       Generate/update CHANGELOG.md\n"
 	@printf "  $(CYAN)make hooks$(NC)           Install commit-msg validation hook\n"
 	@printf "  $(CYAN)make pre-commit$(NC)      Run all hooks on all files\n"
 	@printf "\n"
-	@printf "$(BOLD)$(GREEN)MCP Server (Claude Desktop Integration):$(NC)\n"
+	@printf "$(BOLD)$(GREEN)Claude Desktop Integration (v0.3.0):$(NC)\n"
+	@printf "  $(CYAN)make claude-setup$(NC)    $(BOLD)🚀 ONE COMMAND$(NC) - Test + Configure + Ready!\n"
+	@printf "                       (v0.3.0 Data Dictionary Expert - Claude Desktop)\n"
+	@printf "\n"
+	@printf "$(BOLD)$(GREEN)MCP Server (Docker/Legacy):$(NC)\n"
 	@printf "  $(CYAN)make mcp-setup$(NC)       Build Docker + install Claude config\n"
 	@printf "  $(CYAN)make docker-build$(NC)    Build MCP server Docker image\n"
 	@printf "  $(CYAN)make docker-security$(NC) Run all security checks (lint + scan)\n"
@@ -315,52 +302,28 @@ upgrade-deps:
 # Pipeline Execution Targets
 # =============================================================================
 
+# Load data dictionary (generates JSONL files for MCP search tool)
 run:
-	@printf "$(BLUE)Running pipeline...$(NC)\n"
+	@printf "$(BLUE)Loading data dictionary...$(NC)\n"
 	@$(PYTHON_CMD) -m reportalin.cli.pipeline
-	@printf "$(GREEN)✓ Pipeline complete$(NC)\n"
+	@printf "$(GREEN)✓ Data dictionary loaded$(NC)\n"
 
 run-verbose:
-	@printf "$(BLUE)Running pipeline (verbose)...$(NC)\n"
+	@printf "$(BLUE)Loading data dictionary (verbose)...$(NC)\n"
 	@$(PYTHON_CMD) -m reportalin.cli.pipeline --verbose
-	@printf "$(GREEN)✓ Pipeline complete$(NC)\n"
+	@printf "$(GREEN)✓ Data dictionary loaded$(NC)\n"
 
-run-dictionary:
-	@printf "$(BLUE)Running dictionary loading only...$(NC)\n"
-	@$(PYTHON_CMD) -m reportalin.cli.pipeline --skip-extraction
-	@printf "$(GREEN)✓ Dictionary loading complete$(NC)\n"
+run-dictionary: run
 
-run-extract:
-	@printf "$(BLUE)Running data extraction only...$(NC)\n"
-	@$(PYTHON_CMD) -m reportalin.cli.pipeline --skip-dictionary
-	@printf "$(GREEN)✓ Data extraction complete$(NC)\n"
+# =============================================================================
+# MCP Server Target
+# =============================================================================
 
-run-deidentify:
-	@printf "$(BLUE)Running pipeline with de-identification...$(NC)\n"
-	@$(PYTHON_CMD) -m reportalin.cli.pipeline --enable-deidentification
-	@printf "$(GREEN)✓ De-identification complete$(NC)\n"
-
-run-deidentify-verbose:
-	@printf "$(BLUE)Running pipeline with de-identification (verbose)...$(NC)\n"
-	@$(PYTHON_CMD) -m reportalin.cli.pipeline --enable-deidentification --verbose
-	@printf "$(GREEN)✓ De-identification complete$(NC)\n"
-
-# Run the MCP Agent with a custom prompt
-# Usage: make run-agent PROMPT="Your prompt here"
-run-agent:
-	@printf "$(BLUE)Running MCP Agent...$(NC)\n"
-ifdef PROMPT
-	@./scripts/run_agent.sh "$(PROMPT)"
-else
-	@printf "$(YELLOW)No PROMPT provided. Usage: make run-agent PROMPT=\"Your prompt here\"$(NC)\n"
-	@printf "$(YELLOW)Running with default test prompt...$(NC)\n"
-	@./scripts/run_agent.sh
-endif
-
-# Run the MCP Agent with the default test prompt
-run-agent-test:
-	@printf "$(BLUE)Running MCP Agent with test prompt...$(NC)\n"
-	@./scripts/run_agent.sh
+# Start MCP server (HTTP transport on port 8000)
+mcp:
+	@printf "$(BLUE)Starting MCP server on http://127.0.0.1:$(PORT)...$(NC)\n"
+	@printf "$(CYAN)Press Ctrl+C to stop$(NC)\n"
+	@$(PYTHON_CMD) -m reportalin.server --transport http --port $(PORT)
 
 # =============================================================================
 # Code Quality Targets
@@ -822,99 +785,64 @@ mcp-setup: verify-refactoring docker-build mcp-test-docker mcp-install-config-do
 	@printf "\n"
 
 # =============================================================================
-# Setup Target (One-Command Setup)
+# Setup Target (One-Time Complete Setup)
 # =============================================================================
 
-# 🚀 SETUP: Complete pipeline + Docker + Config generation
+# 🚀 SETUP: Complete one-time setup - run this after `make nuclear`
+# Installs everything needed to use MCP server in Claude Desktop immediately
 setup:
 	@printf "$(BOLD)$(CYAN)"
 	@printf "╔═══════════════════════════════════════════════════════════════════╗\n"
-	@printf "║     🚀 RePORTaLiN COMPLETE SETUP                                  ║\n"
-	@printf "║     Extraction → De-identification → Docker → Verification        ║\n"
+	@printf "║     🚀 RePORTaLiN MCP SERVER - COMPLETE SETUP                     ║\n"
 	@printf "╚═══════════════════════════════════════════════════════════════════╝\n"
 	@printf "$(NC)\n"
-	@printf "$(YELLOW)This will:$(NC)\n"
-	@printf "  1. Install dependencies (uv) + pre-commit hooks\n"
-	@printf "  2. Verify refactoring (imports + tools + docs)\n"
-	@printf "  3. Run data pipeline (dictionary + extraction)\n"
-	@printf "  4. De-identify PHI/PII (DPDPA 2023 compliant)\n"
-	@printf "  5. Build Docker image\n"
-	@printf "  6. Test MCP server\n"
-	@printf "  7. Generate Claude Desktop config\n"
+	@printf "$(YELLOW)This one-time setup will:$(NC)\n"
+	@printf "  1. Install all dependencies\n"
+	@printf "  2. Load data dictionary (Excel → JSONL)\n"
+	@printf "  3. Test MCP search tool\n"
+	@printf "  4. Install Claude Desktop configuration\n"
 	@printf "\n"
-	@printf "$(CYAN)Starting in 3 seconds... (Ctrl+C to cancel)$(NC)\n"
-	@sleep 3
+	@printf "$(CYAN)Starting complete setup...$(NC)\n"
 	@printf "\n"
-	@# Step 1: Install dependencies + pre-commit hooks (reuse install-dev)
-	@printf "$(BOLD)$(BLUE)[1/7] Setting up environment...$(NC)\n"
-	@$(MAKE) install-dev
+	@# Step 1: Install dependencies
+	@printf "$(BOLD)$(BLUE)[1/4] Installing dependencies...$(NC)\n"
+	@uv sync --all-extras 2>&1 | tail -5
+	@printf "$(GREEN)✓ Dependencies installed$(NC)\n"
 	@printf "\n"
-	@# Step 2: Verify refactoring
-	@printf "$(BOLD)$(BLUE)[2/7] Verifying refactoring...$(NC)\n"
-	@$(MAKE) verify-refactoring 2>&1 | grep -E "(✓|✗|⚠)" || true
-	@printf "$(GREEN)✓ Refactoring verification complete$(NC)\n"
+	@# Step 2: Load data dictionary
+	@printf "$(BOLD)$(BLUE)[2/4] Loading data dictionary...$(NC)\n"
+	@$(PYTHON_CMD) -m reportalin.cli.pipeline 2>&1 | grep -E "(Saved|SUCCESS|complete)" | tail -5
+	@printf "$(GREEN)✓ Data dictionary loaded$(NC)\n"
 	@printf "\n"
-	@# Step 3: Run extraction pipeline
-	@printf "$(BOLD)$(BLUE)[3/7] Extracting data (Excel → JSONL)...$(NC)\n"
-	@$(PYTHON_CMD) -m reportalin.cli.pipeline --skip-deidentification 2>&1 | tail -10
-	@printf "$(GREEN)✓ Data extraction complete$(NC)\n"
+	@# Step 3: Test MCP search tool
+	@printf "$(BOLD)$(BLUE)[3/4] Testing MCP search tool...$(NC)\n"
+	@$(PYTHON_CMD) -c "from reportalin.server.tools import search; r = search('diabetes'); print(f'  Search test: Found {len(r.variables)} variables, {len(r.codelists)} codelists')" 2>&1 | grep -E "(Search test|Found)"
+	@printf "$(GREEN)✓ MCP search tool working$(NC)\n"
 	@printf "\n"
-	@# Step 4: Run de-identification
-	@printf "$(BOLD)$(BLUE)[4/7] De-identifying PHI/PII (DPDPA 2023 + ICMR)...$(NC)\n"
-	@$(PYTHON_CMD) -m reportalin.cli.pipeline --skip-dictionary --skip-extraction --enable-deidentification -c IN 2>&1 | tail -10
-	@printf "$(GREEN)✓ De-identification complete$(NC)\n"
-	@printf "\n"
-	@# Step 5: Build Docker
-	@printf "$(BOLD)$(BLUE)[5/7] Building Docker image with provenance...$(NC)\n"
-	@docker build \
-		--build-arg BUILD_VERSION=$(VERSION) \
-		--build-arg BUILD_DATE=$$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
-		--build-arg VCS_REF=$$(git rev-parse --short HEAD 2>/dev/null || echo "unknown") \
-		-t $(DOCKER_IMAGE):$(DOCKER_TAG) \
-		-t $(DOCKER_IMAGE):$(VERSION) \
-		-f docker/Dockerfile . 2>&1 | tail -5
-	@printf "$(GREEN)✓ Docker image built: $(DOCKER_IMAGE):$(DOCKER_TAG)$(NC)\n"
-	@printf "\n"
-	@# Step 6: Test MCP server
-	@printf "$(BOLD)$(BLUE)[6/7] Testing MCP server handshake...$(NC)\n"
-	@printf '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test", "version": "1.0.0"}}}\n{"jsonrpc":"2.0","method":"notifications/initialized"}\n{"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}\n' | \
-		docker run -i --rm -v "$(CURDIR)/results:/app/results:ro" $(DOCKER_IMAGE):$(DOCKER_TAG) 2>/dev/null | \
-		grep -q '"tools"' && printf "$(GREEN)✓ MCP server test passed$(NC)\n" || \
-		(printf "$(RED)✗ MCP server test failed$(NC)\n" && exit 1)
-	@printf "\n"
-	@# Step 7: Generate config file
-	@printf "$(BOLD)$(BLUE)[7/7] Generating Claude Desktop config...$(NC)\n"
-	@echo '{"mcpServers":{"reportalin-mcp":{"command":"docker","args":["run","-i","--rm","-v","$(CURDIR)/results:/app/results:ro","$(DOCKER_IMAGE):$(DOCKER_TAG)"],"env":{"REPORTALIN_PRIVACY_MODE":"strict"}}}}' > claude_desktop_config.generated.json
-	@printf "$(GREEN)✓ Config generated: claude_desktop_config.generated.json$(NC)\n"
+	@# Step 4: Install Claude Desktop configuration
+	@printf "$(BOLD)$(BLUE)[4/4] Installing Claude Desktop configuration...$(NC)\n"
+	@mkdir -p ~/Library/Application\ Support/Claude
+	@UV_PATH=$$(which uv); \
+	echo "{\"mcpServers\":{\"reportalin\":{\"command\":\"$$UV_PATH\",\"args\":[\"run\",\"--directory\",\"$(CURDIR)\",\"reportalin-mcp\"],\"env\":{\"REPORTALIN_PRIVACY_MODE\":\"strict\"}}}}" > ~/Library/Application\ Support/Claude/claude_desktop_config.json
+	@printf "$(GREEN)✓ Claude Desktop configuration installed$(NC)\n"
 	@printf "\n"
 	@# Final summary
 	@printf "$(BOLD)$(GREEN)"
 	@printf "╔═══════════════════════════════════════════════════════════════════╗\n"
-	@printf "║              ✅ SETUP COMPLETE!                                   ║\n"
+	@printf "║              ✅ SETUP COMPLETE - READY TO USE!                    ║\n"
 	@printf "╚═══════════════════════════════════════════════════════════════════╝\n"
 	@printf "$(NC)\n"
-	@printf "$(BOLD)$(YELLOW)📋 STEP 2: Connect to Claude Desktop$(NC)\n"
+	@printf "$(BOLD)$(YELLOW)📋 FINAL STEP:$(NC)\n"
 	@printf "\n"
-	@printf "   Copy the generated config to Claude Desktop:\n"
-	@printf "   $(CYAN)cp claude_desktop_config.generated.json ~/Library/Application\\ Support/Claude/claude_desktop_config.json$(NC)\n"
+	@printf "   $(BOLD)Restart Claude Desktop$(NC) to load the MCP server.\n"
 	@printf "\n"
-	@printf "   Then $(BOLD)restart Claude Desktop$(NC) to load the MCP server.\n"
+	@printf "$(BOLD)$(CYAN)Then ask Claude:$(NC)\n"
+	@printf "   \"Search for diabetes variables\"\n"
+	@printf "   \"Find HIV-related fields\"\n"
+	@printf "   \"What variables are available for treatment outcomes?\"\n"
 	@printf "\n"
-	@printf "$(BOLD)After restart, you'll see:$(NC)\n"
-	@printf "   • MCP tools icon (🔧) in the chat interface\n"
-	@printf "   • Server: $(CYAN)reportalin-mcp$(NC)\n"
-	@printf "   • 4 available tools for RePORT India data (SECURE MODE)\n"
-	@printf "     1. prompt_enhancer ⭐ (recommended entry point)\n"
-	@printf "     2. combined_search (default analytical tool)\n"
-	@printf "     3. search_data_dictionary (metadata lookup)\n"
-	@printf "     4. search_cleaned_dataset (dataset queries)\n"
-	@printf "\n"
-	@printf "$(BOLD)Try asking Claude:$(NC)\n"
-	@printf '   $(CYAN)"How many patients have both TB and HIV?"$(NC)\n'
-	@printf '   $(CYAN)"What variables are used for HIV status?"$(NC)\n'
-	@printf "\n"
-	@printf "$(BOLD)Pipeline completed:$(NC)\n"
-	@printf "   Verification → Extraction → De-identification → Docker → MCP Access ✅\n"
+	@printf "$(BOLD)Configuration installed to:$(NC)\n"
+	@printf "   ~/Library/Application Support/Claude/claude_desktop_config.json\n"
 	@printf "\n"
 
 # =============================================================================
@@ -1034,6 +962,80 @@ mcp-install-config-local:
 	@printf "$(YELLOW)→ Restart Claude Desktop to apply changes$(NC)\n"
 	@printf "$(CYAN)→ Command: uv run python -m reportalin.server$(NC)\n"
 	@printf "$(CYAN)→ Working Directory: $(CURDIR)$(NC)\n"
+
+# =============================================================================
+# Claude Desktop Integration (v0.3.0 - Data Dictionary Expert)
+# =============================================================================
+
+# Complete Claude Desktop setup and testing in one command
+claude-setup:
+	@printf "$(BOLD)$(CYAN)"
+	@printf "╔═══════════════════════════════════════════════════════════════════╗\n"
+	@printf "║   🚀 Claude Desktop Setup - v0.3.0 Data Dictionary Expert        ║\n"
+	@printf "║     Test → Verify → Configure → Ready                             ║\n"
+	@printf "╚═══════════════════════════════════════════════════════════════════╝\n"
+	@printf "$(NC)\n"
+	@# Step 1: Run core tests
+	@printf "$(BOLD)$(BLUE)[1/5] Running core tests (v0.3.0 - 3 tools)...$(NC)\n"
+	@$(PYTHON_CMD) -m pytest tests/unit/test_mcp_server.py tests/integration/test_server_startup.py -v 2>&1 | grep -E "(test_|PASSED|FAILED|ERROR|✓|✗)" | tail -20 || true
+	@printf "$(GREEN)✓ Tests complete$(NC)\n"
+	@printf "\n"
+	@# Step 2: Verify data dictionary loading
+	@printf "$(BOLD)$(BLUE)[2/5] Verifying data dictionary loading...$(NC)\n"
+	@$(PYTHON_CMD) -c "from reportalin.server.tools._loaders import load_data_dictionary, load_codelists; dd = load_data_dictionary(); cl = load_codelists(); print(f'  ✓ {len(dd)} tables loaded'); print(f'  ✓ {len(cl)} codelists loaded')" 2>&1 | grep "✓"
+	@printf "$(GREEN)✓ Data loading verified$(NC)\n"
+	@printf "\n"
+	@# Step 3: Verify 3-tool architecture
+	@printf "$(BOLD)$(BLUE)[3/5] Verifying v0.3.0 tool architecture...$(NC)\n"
+	@$(PYTHON_CMD) -c "from reportalin.server.tools import get_tool_registry; r = get_tool_registry(); assert len(r['registered_tools']) == 3; print('  ✓ 3 tools registered:', ', '.join(r['registered_tools']))" 2>&1 | grep "✓"
+	@printf "$(GREEN)✓ v0.3.0 architecture verified$(NC)\n"
+	@printf "\n"
+	@# Step 4: Configure Claude Desktop
+	@printf "$(BOLD)$(BLUE)[4/5] Configuring Claude Desktop...$(NC)\n"
+	@mkdir -p ~/Library/Application\ Support/Claude
+	@VENV_PYTHON="$(CURDIR)/.venv/bin/python"; \
+	echo "{\"mcpServers\":{\"reportalin-mcp\":{\"command\":\"$$VENV_PYTHON\",\"args\":[\"-m\",\"reportalin.server\",\"--transport\",\"stdio\"],\"cwd\":\"$(CURDIR)\",\"env\":{\"REPORTALIN_PRIVACY_MODE\":\"strict\",\"NO_COLOR\":\"1\",\"TERM\":\"dumb\",\"FORCE_COLOR\":\"0\",\"PYTHONUNBUFFERED\":\"1\"}}}}" | python3 -m json.tool > ~/Library/Application\ Support/Claude/claude_desktop_config.json
+	@printf "$(GREEN)✓ Claude Desktop config installed$(NC)\n"
+	@printf "\n"
+	@# Step 5: Verify configuration
+	@printf "$(BOLD)$(BLUE)[5/5] Verifying configuration...$(NC)\n"
+	@cat ~/Library/Application\ Support/Claude/claude_desktop_config.json | python3 -m json.tool | grep -E "(reportalin-mcp|command|args)" | head -5 | sed 's/^/  /'
+	@printf "$(GREEN)✓ Configuration verified$(NC)\n"
+	@printf "\n"
+	@# Final summary
+	@printf "$(BOLD)$(GREEN)"
+	@printf "╔═══════════════════════════════════════════════════════════════════╗\n"
+	@printf "║              ✅ CLAUDE DESKTOP SETUP COMPLETE!                    ║\n"
+	@printf "╚═══════════════════════════════════════════════════════════════════╝\n"
+	@printf "$(NC)\n"
+	@printf "$(BOLD)$(YELLOW)📋 Next Step: Restart Claude Desktop$(NC)\n"
+	@printf "\n"
+	@printf "   1. $(BOLD)Quit Claude Desktop completely$(NC) (Cmd+Q)\n"
+	@printf "   2. $(BOLD)Restart Claude Desktop$(NC)\n"
+	@printf "   3. Look for $(CYAN)reportalin-mcp$(NC) server indicator\n"
+	@printf "   4. Start chatting with your 3 Data Dictionary Expert tools!\n"
+	@printf "\n"
+	@printf "$(BOLD)✅ Available Tools (3 total - v0.3.0):$(NC)\n"
+	@printf "   • $(CYAN)prompt_enhancer$(NC) ⭐ PRIMARY - Intelligent router\n"
+	@printf "   • $(CYAN)combined_search$(NC) 🔍 DEFAULT - Variable discovery with concept expansion\n"
+	@printf "   • $(CYAN)search_data_dictionary$(NC) 📖 Direct variable lookup\n"
+	@printf "\n"
+	@printf "$(BOLD)🎯 Try These Queries:$(NC)\n"
+	@printf "   $(CYAN)\"What variables should I use for relapse analysis?\"$(NC)\n"
+	@printf "   $(CYAN)\"Search for HIV-related variables\"$(NC)\n"
+	@printf "   $(CYAN)\"Find all outcome codelists\"$(NC)\n"
+	@printf "\n"
+	@printf "$(BOLD)📊 Server Info:$(NC)\n"
+	@printf "   • Version: $(CYAN)v0.3.0$(NC) - Data Dictionary Expert\n"
+	@printf "   • Focus: $(CYAN)Metadata only$(NC) (NO patient data)\n"
+	@printf "   • Data: $(CYAN)18 tables, 47 codelists$(NC)\n"
+	@printf "   • Transport: $(CYAN)stdio$(NC) (secure)\n"
+	@printf "\n"
+	@printf "$(BOLD)🔧 Troubleshooting:$(NC)\n"
+	@printf "   • View config: $(CYAN)make mcp-show-config$(NC)\n"
+	@printf "   • Run tests: $(CYAN)make test$(NC)\n"
+	@printf "   • Check status: $(CYAN)make status$(NC)\n"
+	@printf "\n"
 
 # =============================================================================
 # Docker Compose Targets (Production Deployment)

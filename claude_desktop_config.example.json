@@ -12,8 +12,13 @@
         "--transport",
         "stdio"
       ],
+      "cwd": "/Users/sj1136/Documents/VSCode_files/gitRepo/Work/RePORTaLiN-Agent",
       "env": {
-        "REPORTALIN_PRIVACY_MODE": "strict"
+        "REPORTALIN_PRIVACY_MODE": "strict",
+        "NO_COLOR": "1",
+        "TERM": "dumb",
+        "FORCE_COLOR": "0",
+        "PYTHONUNBUFFERED": "1"
       }
     }
   }

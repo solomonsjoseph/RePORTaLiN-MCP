@@ -60,7 +60,7 @@ uv run python tests/integration/test_server_startup.py
 **Expected output:**
 
 ```
-✓ 30/30 unit tests passing
+✓ 26/26 unit tests passing
 ✓ 3/3 tools properly registered (v0.3.0 - Data Dictionary Expert)
 ✓ SERVER IS READY FOR USE
 ```
@@ -78,7 +78,7 @@ Use the absolute path to your virtual environment Python:
   "mcpServers": {
     "reportalin-mcp": {
       "command": "/absolute/path/to/RePORTaLiN-Agent/.venv/bin/python",
-      "args": ["-m", "server"],
+      "args": ["-m", "reportalin.server", "--transport", "stdio"],
       "cwd": "/absolute/path/to/RePORTaLiN-Agent",
       "env": {
         "REPORTALIN_PRIVACY_MODE": "strict",
@@ -99,15 +99,17 @@ If you have [uv](https://github.com/astral-sh/uv) installed:
 ```json
 {
   "mcpServers": {
-    "reportalin-specialist": {
+    "reportalin-mcp": {
       "command": "uv",
       "args": [
         "run",
         "--directory", "/absolute/path/to/RePORTaLiN-Agent",
-        "python", "-m", "server"
+        "reportalin-mcp",
+        "--transport", "stdio"
       ],
       "env": {
-        "REPORTALIN_PRIVACY_MODE": "strict"
+        "REPORTALIN_PRIVACY_MODE": "strict",
+        "NO_COLOR": "1"
       }
     }
   }

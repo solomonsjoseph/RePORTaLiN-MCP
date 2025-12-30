@@ -1,9 +1,11 @@
 """FastMCP server setup and tool registry for RePORTaLiN.
 
 This module configures the FastMCP server instance and registers:
-- 3 MCP tools (prompt_enhancer, combined_search, search_data_dictionary)
+- 1 MCP tool: search (LLM-powered variable search)
 - 6 MCP resources (study overview, tables, codelists, etc.)
 - 4 MCP prompts (research templates and analysis guides)
+
+Simple by design - one powerful tool that understands clinical concepts.
 """
 
 from __future__ import annotations
@@ -19,9 +21,7 @@ from reportalin.server.tools._loaders import (
     get_codelists,
     get_data_dictionary,
 )
-from reportalin.server.tools.combined_search import combined_search
-from reportalin.server.tools.prompt_enhancer import prompt_enhancer
-from reportalin.server.tools.search_data_dictionary import search_data_dictionary
+from reportalin.server.tools.search import search
 
 __all__ = [
     "mcp",
@@ -38,87 +38,46 @@ logger = get_logger(__name__)
 settings = get_settings()
 
 SYSTEM_INSTRUCTIONS = """
-RePORTaLiN MCP Server - Data Dictionary Expert for RePORT India TB Study
+RePORTaLiN MCP Server - LLM-Powered Variable Search for RePORT India TB Study
 
-This server provides access to the RePORT India (Indo-VAP) tuberculosis cohort study
-data dictionary and variable mappings. Find the right variables for your research questions.
+This server provides intelligent access to the RePORT India (Indo-VAP) tuberculosis 
+cohort study data dictionary. Better than SQL search - understands clinical concepts.
 
-RePORT India is a multi-site prospective observational cohort studying TB treatment outcomes,
-comorbidities (HIV, diabetes, malnutrition), and risk factors (smoking, alcohol) in India.
+## ONE TOOL - Simple & Powerful
 
-## IMPORTANT: Tool Selection Guide
+**Use `search` for ALL variable discovery queries.**
 
-**PRIMARY ENTRY POINT: Use `prompt_enhancer` for ALL user queries.**
+Examples:
+- search("HIV status") → finds HIV, CD4, ART variables
+- search("relapse") → finds relapse, recurrence, recur variables  
+- search("diabetes") → finds DM, glucose, HbA1c variables
+- search("treatment outcome") → finds cure, failure, death variables
 
-The prompt_enhancer tool will:
-1. Analyze your question to understand what you're asking
-2. Show you how it interpreted your question
-3. Wait for your confirmation before executing
-4. Route to the appropriate specialized tool automatically
+## Why Better Than SQL
 
-### Workflow:
-```
-User Query → prompt_enhancer (interprets + confirms) → Appropriate Tool → Results
-```
+1. **Understands Concepts**: "relapse" finds "recurrence", "recur", "recurrent"
+2. **Clinical Synonyms**: "diabetes" finds "DM", "glucose", "HbA1c", "OGTT"
+3. **Structured Output**: Returns field names, descriptions, codelists ready for analysis
+4. **Fast**: No complex SQL joins - instant concept-based search
 
-## Available Tools (3 Total)
-
-### PRIMARY TOOL - Use This First
-
-1. **prompt_enhancer** - INTELLIGENT QUERY ROUTER (USE THIS FIRST)
-   - Takes ANY vague or specific question
-   - Analyzes intent and enhances query for accuracy
-   - CRITICAL: Confirms understanding with you BEFORE executing
-   - Automatically routes to the right tool
-   - USE FOR: ALL user queries - let it figure out what you need
-
-### Specialized Tools (Auto-selected by prompt_enhancer)
-
-2. **combined_search** - DEFAULT for variable discovery
-   - Searches data dictionary and codelists
-   - Uses intelligent concept synonym mapping
-   - USE FOR: "What variables for relapse analysis?", "Diabetes variables", "TB outcomes"
-   - Handles most queries automatically
-
-3. **search_data_dictionary** - Direct variable lookup
-   - Returns variable definitions, codelists, field names
-   - Precise search by variable name or keyword
-   - USE FOR: "What variables exist for X?", "What does variable Y mean?"
-
-## Available Resources (6 Total)
+## Available Resources
 
 - `dictionary://overview` - Study data summary
-- `dictionary://tables` - List of all tables
+- `dictionary://tables` - List of all tables  
 - `dictionary://codelists` - Categorical value definitions
 - `dictionary://table/{name}` - Specific table schema
 - `dictionary://codelist/{name}` - Specific codelist values
 - `study://variables/{category}` - Variables by category
 
-## Available Prompts (4 Total)
+## Study Context (RePORT India)
 
-- `research_question_template` - How to answer research questions
-- `data_exploration_guide` - Step-by-step data exploration
-- `statistical_analysis_template` - Conducting statistical analyses
-- `tb_outcome_analysis` - TB treatment outcome specific guidance
+Multi-site prospective TB cohort studying:
+- Treatment outcomes: cure, failure, death, loss to follow-up
+- Comorbidities: HIV, diabetes mellitus, malnutrition
+- Risk factors: smoking, alcohol, BMI
+- Demographics: age, sex, site (Pune, Chennai, Vellore)
 
-## RePORT India Study Context
-
-Common research areas:
-- TB treatment outcomes (cure, failure, death, loss to follow-up)
-- Comorbidities: HIV, diabetes mellitus, malnutrition/undernutrition
-- Risk factors: smoking, alcohol use, BMI
-- Demographics: age, sex, site
-- Follow-up visits: baseline, month 2, 6, 12, 24
-
-## What This Server Provides
-
-- Variable names and descriptions
-- Data dictionary field definitions
-- Codelist values (valid codes and their meanings)
-- CRF form → Database table mappings
-- Clinical concept synonym expansion
-
-This server ONLY provides metadata - no patient data or statistics.
+This server provides METADATA only - variable definitions and codelists.
 """
 
 mcp = FastMCP(
@@ -129,13 +88,11 @@ mcp = FastMCP(
 )
 
 # =============================================================================
-# Register MCP Tools
+# Register MCP Tool
 # =============================================================================
 
-# Register the 3 tools with FastMCP
-mcp.tool()(prompt_enhancer)
-mcp.tool()(combined_search)
-mcp.tool()(search_data_dictionary)
+# Register the single powerful search tool
+mcp.tool()(search)
 
 
 # =============================================================================
@@ -158,17 +115,15 @@ Data Dictionary:
 - Total fields: {dict_fields}
 - Codelists: {len(codelists)}
 
-TOOL SELECTION GUIDE:
-- For ANY question → Start with `prompt_enhancer` (it will route for you)
-- For variable discovery → `combined_search` uses concept synonym mapping
-- For direct lookup → `search_data_dictionary`
+## ONE TOOL - Simple & Powerful
 
-Available Tools (3):
-1. prompt_enhancer - INTELLIGENT ROUTER: Analyzes query, confirms with you, routes automatically
-2. combined_search - DEFAULT: Searches dictionary and codelists with concept expansion
-3. search_data_dictionary - Variable definitions by keyword
+Use `search` for ALL variable discovery. Examples:
+- search("HIV status") → finds HIV, CD4, ART variables
+- search("relapse") → finds relapse, recurrence variables
+- search("diabetes") → finds DM, glucose, HbA1c variables
 
-Available Resources (6):
+## Available Resources
+
 - dictionary://overview - This overview
 - dictionary://tables - List all tables
 - dictionary://codelists - All codelist definitions
@@ -176,13 +131,7 @@ Available Resources (6):
 - dictionary://codelist/{{name}} - Specific codelist values
 - study://variables/{{category}} - Variables by category
 
-Available Prompts (4):
-- research_question_template - Research question guidance
-- data_exploration_guide - Data exploration steps
-- statistical_analysis_template - Statistical analysis patterns
-- tb_outcome_analysis - TB outcome specific guidance
-
-This server provides metadata only - no patient data or statistics.
+This server provides metadata only - no patient data.
 """
 
 
@@ -360,33 +309,24 @@ RePORT India (Indo-VAP) is a multi-site prospective observational cohort studyin
 - Risk factors (smoking, alcohol, malnutrition/BMI)
 - Demographics across multiple sites in India
 
-## How to Find Variables for Your Research Question
+## How to Find Variables
 
-1. **First**, use `prompt_enhancer` with your question
-   - It will analyze your query and confirm understanding
-   - It will automatically route to the right tool
-   - Example: prompt_enhancer(user_query="What variables for HIV analysis?")
-
-2. **Or**, use `combined_search` directly with the relevant clinical concept
-   - Example: combined_search(concept="HIV status")
-
-3. **Review** the variable definitions and codelists returned
-   - Note variable names, descriptions, and valid codes
-   - Check which database tables contain the variables
-   - Review codelist values for categorical variables
-
-## Important Guidelines
-- This server provides METADATA only (variable definitions, not patient data)
-- Use the returned variable names in your analysis plan
-- Review codelists to understand valid values for categorical variables
-- Note which CRF forms and database tables contain each variable
+Use `search` with your clinical concept:
+- search("HIV") → finds HIV status, CD4, ART variables
+- search("diabetes") → finds DM, glucose, HbA1c variables
+- search("outcome") → finds treatment outcome variables
 
 ## Example Workflow
 Question: "What variables should I use for HIV analysis?"
-1. Use prompt_enhancer(user_query="What variables for HIV analysis?") OR combined_search(concept="HIV")
-2. Find HIV-related variables (e.g., HIVSTAT, CD4 counts, ART variables)
-3. Review the variable descriptions and codelists
-4. Use these variable names in your data analysis
+1. search("HIV")
+2. Review returned variables (HIVSTAT, CD4, etc.)
+3. Check codelist values for categorical variables
+4. Use variable names in your analysis
+
+## Important
+- This server provides METADATA only (variable definitions, not patient data)
+- Use returned variable names in your analysis plan
+- Review codelists to understand valid values
 """
 
 
@@ -395,28 +335,21 @@ def data_exploration_guide() -> str:
     """Guide for exploring the available data dictionary."""
     return """# Data Dictionary Exploration Guide for RePORT India Study
 
-## Step 1: Understand Available Variables
-- Use resource `dictionary://overview` for data dictionary summary
+## Step 1: Understand Available Data
+- Use resource `dictionary://overview` for summary
 - Use resource `dictionary://tables` for available tables
-- Use resource `dictionary://codelists` for categorical value definitions
+- Use resource `dictionary://codelists` for categorical values
 
-## Step 2: Ask Questions About Variables
-- Use `prompt_enhancer` for ANY question (it will guide you)
-- Example: prompt_enhancer(user_query="What variables are available for smoking?")
-
-## Step 3: Find Specific Variables
-- Use `search_data_dictionary(query="your term")` to find fields
-- Common searches: "HIV", "diabetes", "smoking", "outcome", "age", "BMI"
-
-## Step 4: Discover Variables by Clinical Concept
-- Use `combined_search(concept="topic")` for intelligent concept-based search
-- Example: combined_search(concept="relapse") finds variables for relapse analysis
+## Step 2: Search for Variables
+Use `search` with clinical concepts:
+- search("smoking") → finds smoking-related variables
+- search("relapse") → finds relapse, recurrence variables
+- search("age") → finds age, demographics variables
 
 ## Tips
-- Start with prompt_enhancer - it will interpret and route for you
 - Variable names are often abbreviated (e.g., "SMOKHX" for smoking history)
-- Check codelists to understand valid codes for categorical variables
-- This server provides metadata only - use variable names in your own analysis
+- Check codelists to understand valid codes
+- This server provides metadata only - use variable names in your analysis
 """
 
 
@@ -427,54 +360,34 @@ def statistical_analysis_template() -> str:
 
 ## Finding Variables for Your Analysis
 
-### 1. Demographics
+### Demographics
 ```
-prompt_enhancer(user_query="What demographic variables are available?")
-# OR
-combined_search(concept="demographics")
-# Find age, sex, site, enrollment date variables
+search("demographics")
+# Returns age, sex, site, enrollment variables
 ```
 
-### 2. Clinical Outcomes
+### Clinical Outcomes
 ```
-search_data_dictionary(query="outcome")
-# Returns TB outcome variables and their definitions
-```
-
-### 3. Risk Factors
-```
-combined_search(concept="diabetes")
-# Find all diabetes-related variables (glucose, HbA1c, diagnosis, etc.)
+search("outcome")
+# Returns TB outcome variables and codelists
 ```
 
-## Common Variable Discovery Patterns
-
-### For Prevalence Studies
+### Risk Factors
 ```
-# Find HIV status variable
-combined_search(concept="HIV")
-# Review variable names and codelist values
-# Use variable names in your analysis code
+search("diabetes")
+# Returns glucose, HbA1c, diagnosis variables
 ```
 
-### For Longitudinal Analysis
+### Comorbidities
 ```
-# Find follow-up visit variables
-combined_search(concept="follow-up")
-# Identify baseline, month 2, 6, 12, 24 variables
-```
-
-### For Comorbidity Analysis
-```
-# Find comorbidity variables
-search_data_dictionary(query="comorbid")
-# Review all comorbidity fields
+search("HIV")
+# Returns HIV status, CD4, ART variables
 ```
 
 ## Next Steps
-- Use the variable names returned to build your analysis dataset
-- Review codelists to understand categorical variable coding
-- This server provides metadata - conduct actual analysis in your environment
+- Use variable names in your dataset queries
+- Review codelists for categorical variable coding
+- This server provides metadata only
 """
 
 
@@ -483,42 +396,24 @@ def tb_outcome_analysis() -> str:
     """Specific prompt for finding TB treatment outcome variables."""
     return """# TB Treatment Outcome Variable Discovery Guide
 
-## Understanding TB Outcomes
-The WHO-defined TB treatment outcomes include:
+## WHO-Defined TB Treatment Outcomes
 - **Cured**: Culture/smear negative at treatment completion
-- **Treatment Completed**: Completed treatment without bacteriological confirmation
-- **Treatment Failure**: Positive culture/smear at month 5 or later
+- **Treatment Completed**: Completed without bacteriological confirmation
+- **Treatment Failure**: Positive culture/smear at month 5+
 - **Died**: Death from any cause during treatment
-- **Lost to Follow-up (LTFU)**: Treatment interrupted for ≥2 months
+- **Lost to Follow-up (LTFU)**: Interrupted ≥2 months
 - **Not Evaluated**: No outcome assigned
 
 ## Finding Outcome Variables
-
-### 1. Discover outcome variables
 ```
-prompt_enhancer(user_query="What variables capture TB treatment outcomes?")
-# OR
-combined_search(concept="treatment outcome")
+search("treatment outcome")
+# Returns OUTCLIN, OUTOTH, TB_OUTCOME variables
 ```
 
-### 2. Key outcome variables to look for:
-- OUTCLIN: Clinical outcome
-- OUTOTH: Other outcome classification
-- TB_OUTCOME: Combined outcome
-- Look in 'outcome' or 'offstudy' tables
-
-### 3. Review codelist values
-```
-# Check the codelist for outcome variables
-# Review valid codes and their meanings
-# Example: 1=Cured, 2=Completed, 3=Failure, 4=Died, 5=LTFU
-```
-
-## Using Variables in Your Analysis
-- Use the variable names in your dataset queries
-- Apply the codelist codes to categorize outcomes
+## Using Variables
+- Use variable names in dataset queries
+- Apply codelist codes (e.g., 1=Cured, 2=Completed, 3=Failure)
 - Group favorable (cure + completed) vs unfavorable outcomes
-- This server provides metadata - conduct analysis in your environment
 """
 
 
@@ -535,17 +430,11 @@ def get_tool_registry() -> dict[str, Any]:
     return {
         "server_name": SERVER_NAME,
         "version": SERVER_VERSION,
-        "registered_tools": [
-            "prompt_enhancer",  # Primary entry point
-            "combined_search",  # DEFAULT for variable discovery
-            "search_data_dictionary",  # Direct lookup
-        ],
+        "registered_tools": ["search"],  # One powerful tool
         "registered_resources": [
-            # Overview resources
             "dictionary://overview",
             "dictionary://tables",
             "dictionary://codelists",
-            # Dynamic resources
             "dictionary://table/{table_name}",
             "dictionary://codelist/{codelist_name}",
             "study://variables/{category}",
@@ -565,9 +454,7 @@ def get_tool_registry() -> dict[str, Any]:
             "tools": True,
             "resources": True,
             "prompts": True,
-            "subscriptions": False,
         },
-        "server_type": "data_dictionary_expert",
-        "tool_count": 3,
-        "primary_entry_point": "prompt_enhancer",
+        "server_type": "llm_powered_variable_search",
+        "tool_count": 1,
     }

@@ -1,41 +1,36 @@
 """MCP Tools package for RePORTaLiN.
 
-This package provides the refactored MCP tool architecture with:
-- 3 core tools (prompt_enhancer, combined_search, search_data_dictionary)
-- Shared utilities (_models, _loaders)
-- FastMCP server setup and registration (registry)
+This package provides the MCP tools for study design and variable discovery.
+The primary tool is `search` - an LLM-powered variable search that's better
+than SQL because it understands clinical concepts and synonyms.
 
-All tools are registered with the FastMCP server instance and ready to use.
+Usage:
+    from reportalin.server.tools import search
+    result = search("relapse")  # Finds all relapse-related variables
 """
 
 from __future__ import annotations
 
-# Re-export the FastMCP server instance and registry
-from reportalin.server.tools.registry import get_tool_registry, mcp
-
-# Re-export the 3 tools
-from reportalin.server.tools.combined_search import combined_search
-from reportalin.server.tools.prompt_enhancer import prompt_enhancer
-from reportalin.server.tools.search_data_dictionary import search_data_dictionary
-
-# Re-export input models for use in tests
-from reportalin.server.tools._models import (
-    CombinedSearchInput,
-    PromptEnhancerInput,
-    SearchDataDictionaryInput,
+# Primary tool - LLM-powered search
+from reportalin.server.tools.search import (
+    Codelist,
+    CodelistValue,
+    SearchResult,
+    Variable,
+    search,
 )
 
+# FastMCP server instance
+from reportalin.server.tools.registry import get_tool_registry, mcp
+
 __all__ = [
-    # FastMCP server instance (main export)
+    # Primary tool (simplified)
+    "search",
+    "SearchResult",
+    "Variable",
+    "Codelist",
+    "CodelistValue",
+    # FastMCP server
     "mcp",
-    # Registry function
     "get_tool_registry",
-    # 3 core tools
-    "prompt_enhancer",
-    "combined_search",
-    "search_data_dictionary",
-    # Input models
-    "CombinedSearchInput",
-    "PromptEnhancerInput",
-    "SearchDataDictionaryInput",
 ]
