@@ -5,12 +5,12 @@
       "_doc": "See docs/MCP_SERVER_SETUP.md for detailed instructions",
 
       "_option1_uv_recommended": {
-        "_comment": "RECOMMENDED: Use uv for automatic Python environment management",
+        "_comment": "RECOMMENDED: Use uv with the reportalin-mcp entry point",
         "command": "uv",
         "args": [
           "run",
           "--directory", "/absolute/path/to/RePORTaLiN-Agent",
-          "python", "-m", "reportalin.server"
+          "reportalin-mcp"
         ],
         "env": {
           "REPORTALIN_PRIVACY_MODE": "strict"
@@ -33,15 +33,11 @@
       },
 
       "_option3_venv": {
-        "_comment": "Direct venv Python - use absolute path to your virtual environment",
-        "command": "/absolute/path/to/RePORTaLiN-Agent/.venv/bin/python",
-        "args": [
-          "-m", "reportalin.server"
-        ],
-        "cwd": "/absolute/path/to/RePORTaLiN-Agent",
+        "_comment": "Direct venv Python - use absolute path, or use the reportalin-mcp command",
+        "command": "/absolute/path/to/RePORTaLiN-Agent/.venv/bin/reportalin-mcp",
+        "args": [],
         "env": {
-          "REPORTALIN_PRIVACY_MODE": "strict",
-          "NO_COLOR": "1"
+          "REPORTALIN_PRIVACY_MODE": "strict"
         }
       },
 
@@ -49,7 +45,7 @@
       "args": [
         "run",
         "--directory", "/absolute/path/to/RePORTaLiN-Agent",
-        "python", "-m", "reportalin.server"
+        "reportalin-mcp"
       ],
       "env": {
         "REPORTALIN_PRIVACY_MODE": "strict"

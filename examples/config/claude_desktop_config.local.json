@@ -4,13 +4,9 @@
       "command": "uv",
       "args": [
         "run",
-        "--project",
+        "--directory",
         "/Users/sj1136/Documents/VSCode_files/gitRepo/Work/RePORTaLiN-Agent",
-        "python",
-        "-m",
-        "reportalin.server",
-        "--transport",
-        "stdio"
+        "reportalin-mcp"
       ],
       "env": {
         "REPORTALIN_PRIVACY_MODE": "strict"

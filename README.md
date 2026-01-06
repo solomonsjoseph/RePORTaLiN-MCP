@@ -535,6 +535,33 @@ curl http://localhost:8000/ready
 
 ## Troubleshooting
 
+### macOS Permission Error (Claude Desktop)
+
+**Issue**: `PermissionError: [Errno 1] Operation not permitted: '.venv/pyvenv.cfg'`
+
+**Solution**: Use `uv run` with the entry point instead of direct Python path:
+
+```json
+{
+  "mcpServers": {
+    "reportalin-mcp": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "/path/to/RePORTaLiN-Agent",
+        "reportalin-mcp"
+      ],
+      "env": {
+        "REPORTALIN_PRIVACY_MODE": "strict"
+      }
+    }
+  }
+}
+```
+
+This bypasses macOS sandbox restrictions by letting `uv` manage the Python environment. See [MCP_FIX_SUMMARY.md](MCP_FIX_SUMMARY.md) for details.
+
 ### Connection Refused
 
 ```bash

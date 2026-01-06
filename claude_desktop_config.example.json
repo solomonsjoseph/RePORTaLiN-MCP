@@ -4,21 +4,12 @@
       "command": "uv",
       "args": [
         "run",
-        "--project",
-        "/Users/sj1136/Documents/VSCode_files/gitRepo/Work/RePORTaLiN-Agent",
-        "python",
-        "-m",
-        "reportalin.server",
-        "--transport",
-        "stdio"
+        "--directory",
+        "/path/to/RePORTaLiN-Agent",
+        "reportalin-mcp"
       ],
-      "cwd": "/Users/sj1136/Documents/VSCode_files/gitRepo/Work/RePORTaLiN-Agent",
       "env": {
-        "REPORTALIN_PRIVACY_MODE": "strict",
-        "NO_COLOR": "1",
-        "TERM": "dumb",
-        "FORCE_COLOR": "0",
-        "PYTHONUNBUFFERED": "1"
+        "REPORTALIN_PRIVACY_MODE": "strict"
       }
     }
   }
