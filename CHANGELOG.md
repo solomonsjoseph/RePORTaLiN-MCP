@@ -86,7 +86,6 @@ uv pip install reportalin-mcp[data-prep]
     1. `prompt_enhancer` ⭐ - NEW primary entry point with confirmation flow
     2. `combined_search` - DEFAULT for analytical queries
     3. `search_data_dictionary` - Metadata lookup only
-    4. `search_cleaned_dataset` - Direct dataset query (deidentified only)
   - **Removed tools:** (functionality merged into `combined_search`)
     - ❌ `natural_language_query` - Replaced by `prompt_enhancer`
     - ❌ `cohort_summary` - Merged into `combined_search`
@@ -94,7 +93,6 @@ uv pip install reportalin-mcp[data-prep]
     - ❌ `variable_details` - Merged into `search_data_dictionary`
     - ❌ `data_quality_report` - Merged into `combined_search`
     - ❌ `multi_variable_comparison` - Merged into `combined_search`
-    - ❌ `search_original_dataset` - Privacy requirement: deidentified only
 
 - **Tools Package Refactored to Modular Architecture**
   - **Before:** Single monolithic file (`server/tools.py` - 2,710 lines)
@@ -116,9 +114,8 @@ uv pip install reportalin-mcp[data-prep]
     - Clear separation of concerns
 
 - **Privacy-First Architecture**
-  - **STRICT:** Only deidentified data accessible (no admin override)
   - All tools enforce aggregate statistics only (no individual records)
-  - Removed access to original dataset (`search_original_dataset` deleted)
+  - Data dictionary metadata access only
 
 - **MCP Resources (6 Total) - Maintained**
   - `dictionary://overview` - Updated with new 4-tool architecture
@@ -196,7 +193,6 @@ uv pip install reportalin-mcp[data-prep]
 - Enhanced `shared/types.py` with comprehensive type definitions
 - Refactored `server/main.py` to properly separate FastAPI routes from ASGI middleware
 - Updated `server/auth.py` to use rotatable secrets for token rotation
-- Updated `scripts/deidentify.py` with AES-256-GCM and Fernet fallback for legacy files
 - Improved `client/mcp_client.py` with retry configuration and connection recovery
 
 ### Security

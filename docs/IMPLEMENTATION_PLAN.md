@@ -1,12 +1,14 @@
 # MCP Implementation Plan for RePORT India Clinical Study Data
 
+> **⚠️ ARCHIVE NOTICE**: This document contains historical planning information and may reference deprecated features (e.g., deidentification). For current architecture, see [DATA_PIPELINE.md](DATA_PIPELINE.md) and [MCP_SERVER_SETUP.md](MCP_SERVER_SETUP.md).
+
 <!--
 Document Type: Explanation (Diátaxis)
 Target Audience: Project managers, architects, and developers
 Prerequisites: Understanding of MCP protocol and clinical data requirements
 -->
 
-> **Type**: Explanation | **Updated**: 2025-12-08 | **Status**: ✅ Active  
+> **Type**: Explanation | **Updated**: 2025-12-08 | **Status**: 📚 Archived  
 > **Study**: RePORT India (Regional Prospective Observational Research for Tuberculosis)  
 > **Primary Regulation**: DPDPA 2023 (Digital Personal Data Protection Act) + DPDP Rules 2025
 

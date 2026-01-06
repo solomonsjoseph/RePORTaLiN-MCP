@@ -6,7 +6,7 @@ Target Audience: Developers understanding the data flow
 Prerequisites: Basic understanding of data processing pipelines
 -->
 
-> **Type**: Explanation | **Updated**: 2025-12-08 | **Status**: ✅ Production Ready
+> **Type**: Explanation | **Updated**: 2026-01-06 | **Status**: ✅ Production Ready
 
 **Related Documentation:**
 - [MCP Server Setup](MCP_SERVER_SETUP.md) — Server integration guide
@@ -17,27 +17,28 @@ Prerequisites: Basic understanding of data processing pipelines
 
 ## Overview
 
-The RePORTaLiN-Agent implements a complete data pipeline for querying RePORT India clinical study data:
+The RePORTaLiN-Agent implements a data dictionary service for querying RePORT India clinical study metadata via MCP (Model Context Protocol):
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         DATA PIPELINE FLOW                                  │
 │                                                                             │
-│    ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────┐ │
-│    │ EXTRACTION  │ ──► │ DE-IDENTIFY │ ──► │   RESULTS   │ ──► │   MCP   │ │
-│    │             │     │             │     │             │     │  ACCESS │ │
-│    │ Excel→JSONL │     │ PHI Removal │     │ Clean Data  │     │  Tools  │ │
-│    └─────────────┘     └─────────────┘     └─────────────┘     └─────────┘ │
+│    ┌─────────────┐     ┌─────────────┐     ┌─────────────┐                 │
+│    │   EXTRACT   │ ──► │  DICTIONARY │ ──► │     MCP     │                 │
+│    │             │     │   MAPPING   │     │   ACCESS    │                 │
+│    │ Excel→JSONL │     │   Results   │     │    Tools    │                 │
+│    └─────────────┘     └─────────────┘     └─────────────┘                 │
 │                                                                             │
-│    data/dataset/       scripts/            results/            server/     │
-│    *.xlsx              deidentify.py       deidentified/       tools.py    │
+│    data/dataset/       results/             server/                        │
+│    *.xlsx              data_dictionary_     tools.py                        │
+│                        mappings/                                            │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Pipeline Stages
 
-### Stage 1: Extraction (`scripts/extract_data.py`)
+### Stage 1: Data Extraction
 
 Converts raw Excel files to JSONL format:
 
@@ -48,39 +49,28 @@ Converts raw Excel files to JSONL format:
   - Duplicate column removal
   - Progress tracking with integrity checks
 
-```bash
-# Run extraction only
-python main.py --skip-dictionary
-```
+### Stage 2: Dictionary Mapping
 
-### Stage 2: De-identification (`scripts/deidentify.py`)
+Creates data dictionary from annotations and mappings:
 
-Removes PHI/PII per DPDPA 2023 requirements:
-
-- **Input**: `results/dataset/{name}/`
-- **Output**: `results/deidentified/{name}/`
+- **Input**: `data/Annotated_PDFs/` and mapping specifications
+- **Output**: `results/data_dictionary_mappings/`
 - **Features**:
-  - 18+ PHI types detected (names, Aadhaar, PAN, ABHA, dates, etc.)
-  - Country-specific patterns (India, US, Indonesia, etc.)
-  - Pseudonymization with deterministic hashing
-  - Date shifting with interval preservation
-  - Encrypted mapping storage (AES-256-GCM)
+  - Variable name extraction
+  - Codelist mapping
+  - Table relationship mapping
+  - Metadata generation
 
-```bash
-# Run full pipeline with de-identification
-python main.py --enable-deidentification -c IN
-```
+### Stage 3: MCP Access
 
-### Stage 3: MCP Access (`server/data_pipeline.py`)
+Provides query interface via MCP tools:
 
-Connects MCP tools to de-identified results:
-
-- **Input**: `results/deidentified/{name}/`
+- **Input**: `results/data_dictionary_mappings/`
 - **Output**: JSON responses via MCP tools
 - **Features**:
-  - K-anonymity protection (k ≥ 5)
-  - Aggregate-only queries by default
-  - Group suppression for small counts
+  - Variable discovery
+  - Codelist lookup
+  - Table schema queries
   - Audit logging for compliance
 
 ## MCP Tools (v0.3.0 - Data Dictionary Expert)
@@ -103,61 +93,61 @@ This server provides **3 tools** for metadata lookup ONLY. NO patient data or st
 ## Quick Start
 
 ```bash
-# 1. Run the data pipeline
-python main.py --enable-deidentification -c IN
+# 1. Extract data and build dictionary
+uv run python -m reportalin.cli.main
 
 # 2. Start the MCP server
-uv run uvicorn server.main:app --host 127.0.0.1 --port 8000
+uv run python -m reportalin.server.main
 
 # 3. Run the example client
-uv run python client/examples/query_clinical_data.py
+uv run python examples/client/query_clinical_data.py
 ```
-
-## Privacy Protection
-
-All queries go through k-anonymity checks:
-
-1. **Group Suppression**: Results with fewer than k=5 records are hidden
-2. **Aggregate Only**: Individual records are never returned
-3. **Audit Logging**: All access is logged for DPDPA compliance
-4. **Encrypted Mappings**: De-identification keys stored with AES-256-GCM
 
 ## Directory Structure
 
 ```
 RePORTaLiN-Agent/
 ├── data/
-│   └── dataset/
-│       └── Indo-vap_csv_files/     # Raw Excel files (INPUT)
-│           ├── 1A_ICScreening.xlsx
-│           ├── 2A_ICBaseline.xlsx
-│           └── ...
+│   ├── Annotated_PDFs/             # Annotated CRFs (INPUT)
+│   │   └── Annotated CRFs - Indo-VAP/
+│   ├── dataset/
+│   │   └── Indo-vap_csv_files/     # Raw Excel files (INPUT)
+│   │       ├── 1A_ICScreening.xlsx
+│   │       ├── 2A_ICBaseline.xlsx
+│   │       └── ...
+│   └── data_dictionary_and_mapping_specifications/
+│       └── RePORT_DEB_to_Tables_mapping.xlsx
 ├── results/
 │   ├── dataset/
 │   │   └── Indo-vap/               # Extracted JSONL
 │   │       ├── original/
 │   │       └── cleaned/
-│   ├── deidentified/
-│   │   └── Indo-vap/               # De-identified JSONL (MCP reads from here)
-│   │       ├── original/
-│   │       └── cleaned/
-│   └── data_dictionary_mappings/   # Data dictionary JSONL
-├── scripts/
-│   ├── extract_data.py             # Stage 1: Extraction
-│   ├── deidentify.py               # Stage 2: De-identification
-│   └── load_dictionary.py          # Dictionary loader
-├── server/
-│   ├── tools/                      # MCP tools package (v0.3.0 - 3 tools)
-│   │   ├── registry.py             # FastMCP setup
-│   │   ├── combined_search.py      # Variable discovery
+│   ├── data_dictionary_mappings/   # Data dictionary JSONL (MCP reads from here)
+│   │   ├── tblDEMOG/
+│   │   ├── tblHISTORY/
 │   │   └── ...
-│   └── main.py                     # MCP server entry
-└── main.py                         # Pipeline orchestrator
+│   └── metadata_summary.json       # Generated metadata
+├── src/reportalin/
+│   ├── data/                       # Data processing modules
+│   ├── server/                     # MCP server
+│   │   └── tools/                  # MCP tools (v0.3.0 - 3 tools)
+│   │       ├── combined_search.py  # Variable discovery
+│   │       ├── prompt_enhancer.py  # Intelligent router
+│   │       └── search_data_dictionary.py
+│   └── cli/                        # Command-line interface
+└── docker/                         # Docker deployment
 ```
 
 ## Compliance
 
-- **DPDPA 2023**: India's Digital Personal Data Protection Act
-- **DPDP Rules 2025**: Implementation rules
 - **ICMR Guidelines 2017**: National Ethical Guidelines for Biomedical Research
-- **K-Anonymity**: Minimum k=5 for all query results
+- **Audit Logging**: All MCP tool access is logged
+- **Data Dictionary Only**: No patient-level data is exposed via MCP tools
+
+## Development Workflow
+
+1. **Data Preparation**: Place Excel files in `data/dataset/`
+2. **Extract & Map**: Run CLI to generate dictionaries
+3. **Verify**: Check `results/data_dictionary_mappings/`
+4. **Test Server**: Start MCP server and test with example client
+5. **Deploy**: Use Docker for production deployment

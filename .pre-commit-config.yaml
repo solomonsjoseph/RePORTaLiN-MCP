@@ -34,7 +34,6 @@ repos:
       # Safety: Prevent accidental large file commits
       - id: check-added-large-files
         args: ['--maxkb=1000']
-        exclude: '^deidentification_mappings\.enc$'
       # Safety: Prevent merge conflict markers
       - id: check-merge-conflict
 

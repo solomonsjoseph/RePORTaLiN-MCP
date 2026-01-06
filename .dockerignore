@@ -78,7 +78,6 @@ docs/
 # -----------------------------------------------------------------------------
 data/
 results/dataset/
-results/deidentified/
 *.xlsx
 *.csv
 *.jsonl

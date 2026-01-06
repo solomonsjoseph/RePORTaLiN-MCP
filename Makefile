@@ -231,11 +231,6 @@ status:
 	else \
 		printf "  $(YELLOW)⚠ Data dictionary not found$(NC) - run 'make run'\n"; \
 	fi
-	@if [ -d "results/deidentified" ]; then \
-		printf "  $(GREEN)✓ Deidentified data$(NC)\n"; \
-	else \
-		printf "  $(YELLOW)⚠ Deidentified data not found$(NC) - run 'make run-deidentify'\n"; \
-	fi
 	@printf "\n"
 	@printf "$(BOLD)$(GREEN)🐳 Docker Status:$(NC)\n"
 	@if docker images | grep -q "$(DOCKER_IMAGE)"; then \
@@ -518,7 +513,6 @@ clean-results:
 	@printf "$(YELLOW)This includes:$(NC)\n"
 	@printf "  • Data dictionary mappings\n"
 	@printf "  • Extracted datasets (original)\n"
-	@printf "  • Deidentified datasets (cleaned)\n"
 	@printf "  • All MCP server data sources\n"
 	@printf "\n"
 	@printf "Press Enter to continue or Ctrl+C to cancel... " && read _confirm

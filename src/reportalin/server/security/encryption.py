@@ -37,7 +37,6 @@ Usage:
 
 See Also:
     - NIST SP 800-38D: Recommendation for GCM Mode
-    - scripts/deidentify.py: Uses this for PHI mapping encryption
     - server/security/secrets.py: Key rotation management
 """
 

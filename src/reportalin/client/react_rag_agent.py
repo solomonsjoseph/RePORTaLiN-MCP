@@ -93,7 +93,6 @@ FORBIDDEN_PATHS = ["data/dataset", "data\\dataset"]
 
 # Safe paths for RAG retrieval
 SAFE_PATHS = [
-    "results/deidentified",
     "results/data_dictionary_mappings",
     "results/metadata_summary.json",
     "results/variable_map.json",
@@ -622,7 +621,6 @@ class ReActRAGAgent:
         # Data paths for local RAG tools
         self.project_root = config.project_root
         self.dictionary_dir = self.project_root / "results" / "data_dictionary_mappings"
-        self.deidentified_dir = self.project_root / "results" / "deidentified"
         self.metadata_file = self.project_root / "results" / "metadata_summary.json"
 
     @classmethod
@@ -1135,21 +1133,6 @@ class ReActRAGAgent:
                 except Exception:
                     pass
 
-        # Also check de-identified data directory
-        if self.deidentified_dir.exists():
-            for dataset_dir in self.deidentified_dir.glob("*"):
-                if dataset_dir.is_dir():
-                    jsonl_files = list(dataset_dir.rglob("*.jsonl"))
-                    if jsonl_files:
-                        dataset_info = {
-                            "name": dataset_dir.name,
-                            "domain": self._infer_domain(dataset_dir.name),
-                            "file_count": len(jsonl_files),
-                            "type": "deidentified_data",
-                        }
-                        if not category or category.lower() in dataset_dir.name.lower():
-                            datasets.append(dataset_info)
-
         result = {
             "study": "RePORT India (Indo-VAP)",
             "description": "Tuberculosis clinical study with longitudinal follow-up",
@@ -1181,13 +1164,6 @@ class ReActRAGAgent:
             for jsonl_file in self.dictionary_dir.glob("*.jsonl"):
                 if dataset_name.lower() in jsonl_file.stem.lower():
                     matching_files.append(jsonl_file)
-
-        if not matching_files:
-            # Try de-identified data
-            if self.deidentified_dir.exists():
-                for jsonl_file in self.deidentified_dir.rglob("*.jsonl"):
-                    if dataset_name.lower() in jsonl_file.stem.lower():
-                        matching_files.append(jsonl_file)
 
         if not matching_files:
             return ToolResult(
@@ -1259,11 +1235,6 @@ class ReActRAGAgent:
             if self.dictionary_dir.exists()
             else []
         )
-        data_dirs = (
-            [d for d in self.deidentified_dir.glob("*") if d.is_dir()]
-            if self.deidentified_dir.exists()
-            else []
-        )
 
         overview = {
             "study_name": "RePORT India (Indo-VAP)",
@@ -1309,7 +1280,6 @@ class ReActRAGAgent:
             ],
             "available_resources": {
                 "data_dictionary_files": len(dict_files),
-                "deidentified_datasets": len(data_dirs),
             },
             "metadata": metadata,
         }

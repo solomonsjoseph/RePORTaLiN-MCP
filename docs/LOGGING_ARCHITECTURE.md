@@ -35,7 +35,7 @@ The logging system implements four layers:
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                           APPLICATION LAYER                                 │
-│  (main.py, MCP tools, extract_data.py, deidentify.py, etc.)                │
+│  (main.py, MCP tools, extract_data.py, etc.)                               │
 └─────────────┬──────────────────────────────────────────────────────────────┘
               │
               ▼
@@ -199,9 +199,6 @@ with bind_context(request_id="req-123", user="analyst"):
 │                        ENCRYPTION FLOW                                  │
 │                                                                         │
 │   Log Entry (JSON)                                                      │
-│         │                                                               │
-│         ▼                                                               │
-│   PHI Redaction (patterns from deidentify.py)                          │
 │         │                                                               │
 │         ▼                                                               │
 │   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                │

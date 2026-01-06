@@ -70,7 +70,6 @@ Integration
 Used by all pipeline modules:
     - reportalin.data.load_dictionary: Sheet and table processing
     - reportalin.data.extract: File extraction and duplicate column removal
-    - reportalin.data.deidentify: De-identification and validation
 
 See Also
 --------

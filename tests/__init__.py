@@ -12,8 +12,7 @@ Test Organization:
     │   ├── test_config.py   - Configuration tests
     │   ├── test_logger.py   - Logging tests
     │   ├── test_mcp_server.py - MCP server unit tests
-    │   ├── test_mcp_client.py - MCP client unit tests
-    │   └── test_deidentify.py - De-identification tests
+    │   └── test_mcp_client.py - MCP client unit tests
     └── integration/         - Integration tests for MCP server
         ├── test_server_startup.py - Server lifecycle tests
         ├── test_tool_call.py - Tool execution tests

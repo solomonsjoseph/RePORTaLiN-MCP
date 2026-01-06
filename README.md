@@ -159,8 +159,7 @@ RePORTaLiN-Agent/
 │       │   ├── logging.py       # Structured logging
 │       │   └── constants.py     # Shared constants
 │       ├── data/                # Data processing
-│       │   ├── deidentify.py    # De-identification
-│       │   └── extract_data.py  # Data extraction
+│       │   └── load_dictionary.py  # Data dictionary loading
 │       ├── types/               # Type definitions
 │       │   └── models.py        # Pydantic models
 │       └── cli/                 # CLI commands

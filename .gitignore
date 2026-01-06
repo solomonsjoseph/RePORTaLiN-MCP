@@ -217,14 +217,11 @@ credentials.json
 # .git/
 
 # ============================================================================
-# 11. De-identification & PHI/PII (CRITICAL - DO NOT COMMIT)
+# 11. PHI/PII Data Protection (CRITICAL - DO NOT COMMIT)
 # ============================================================================
 # Mapping files (contain PHI/PII → pseudonym relationships)
 *_mappings.json
 *_mappings.json.enc
-*_deidentification_key.key
-*_deidentification_audit.json
-results/deidentified/mappings/
 
 # Original dataset directories (may contain PHI/PII)
 results/dataset/
@@ -315,4 +312,3 @@ NOTES.md
 # OS files
 .DS_Store
 Thumbs.db
-deidentification_mappings.enc
