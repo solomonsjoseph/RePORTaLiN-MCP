@@ -38,18 +38,14 @@ repos:
       - id: check-merge-conflict
 
   # ==========================================================================
-  # OPTIONAL: Linting & Formatting (manual stage - not run on commit)
-  # Run with: pre-commit run --hook-stage manual --all-files
-  # Or use: make lint / make format
+  # REQUIRED: Linting & Formatting (auto-run on commit)
   # ==========================================================================
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.8.1
     hooks:
       - id: ruff
         args: [--fix]
-        stages: [manual]
       - id: ruff-format
-        stages: [manual]
 
   - repo: https://github.com/PyCQA/bandit
     rev: 1.7.10
