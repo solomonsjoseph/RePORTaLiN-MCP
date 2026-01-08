@@ -273,6 +273,9 @@ data/data_dictionary_and_mapping_specifications/~$*.xlsx
 docs/.vision/
 docs/.vision/**
 
+# Instructions directory (for internal use only)
+.github/instructions/
+
 # ============================================================================
 # 15. Housekeeping & Temporary Documentation
 # ============================================================================
