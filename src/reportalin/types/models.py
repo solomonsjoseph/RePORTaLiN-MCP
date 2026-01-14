@@ -27,7 +27,6 @@ __all__ = [
     # Dataclasses
     "ToolResult",
     "ServerCapabilities",
-    "SecurityContext",
     # Type Aliases
     "ToolName",
     "ResourceUri",
@@ -131,27 +130,6 @@ class ServerCapabilities:
     sampling: bool = False  # Server can request LLM completions
     roots: bool = False  # Server can access file system roots
     experimental: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass(frozen=True, slots=True)
-class SecurityContext:
-    """
-    Security context for request processing.
-
-    Contains authentication and authorization information
-    for the current request.
-    """
-
-    authenticated: bool = False
-    auth_method: str | None = None
-    client_id: str | None = None
-    scopes: frozenset[str] = field(default_factory=frozenset)
-    rate_limit_remaining: int | None = None
-
-    @property
-    def is_authenticated(self) -> bool:
-        """Alias for authenticated for API consistency."""
-        return self.authenticated
 
 
 # Type aliases for common patterns

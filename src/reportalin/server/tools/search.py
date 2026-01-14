@@ -18,7 +18,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field
 
-from reportalin.core.logging import get_logger
+from reportalin.logging import get_logger
 from reportalin.server.tools._loaders import get_codelists, get_data_dictionary
 
 __all__ = ["search", "SearchResult", "Variable", "Codelist"]

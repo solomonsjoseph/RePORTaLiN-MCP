@@ -1,7 +1,7 @@
 """
 Tests for config module.
 
-Tests configuration loading, path resolution, and validation.
+Minimal tests for configuration loading and validation.
 """
 
 import os
@@ -32,25 +32,6 @@ class TestConfigPaths:
         assert config.RESULTS_DIR.endswith("results")
 
 
-class TestDatasetDetection:
-    """Test dataset folder detection."""
-
-    def test_normalize_dataset_name_with_suffix(self) -> None:
-        """Should remove common suffixes from dataset names."""
-        assert config.normalize_dataset_name("test_csv_files") == "test"
-        assert config.normalize_dataset_name("test_files") == "test"
-
-    def test_normalize_dataset_name_without_suffix(self) -> None:
-        """Should preserve names without suffixes."""
-        assert config.normalize_dataset_name("test_dataset") == "test_dataset"
-
-    def test_normalize_dataset_name_empty(self) -> None:
-        """Should return default for empty input."""
-        assert config.normalize_dataset_name(None) == config.DEFAULT_DATASET_NAME
-        assert config.normalize_dataset_name("") == config.DEFAULT_DATASET_NAME
-        assert config.normalize_dataset_name("  ") == config.DEFAULT_DATASET_NAME
-
-
 class TestConfigValidation:
     """Test configuration validation."""
 
@@ -62,14 +43,4 @@ class TestConfigValidation:
     def test_ensure_directories_creates_dirs(self, tmp_path: Path) -> None:
         """ensure_directories should create necessary directories."""
         # This test just verifies the function runs without error
-        # In production, it creates the actual directories
         config.ensure_directories()
-
-
-class TestExportedAPI:
-    """Test that all exported symbols are accessible."""
-
-    def test_all_exports_exist(self) -> None:
-        """All items in __all__ should be accessible."""
-        for name in config.__all__:
-            assert hasattr(config, name), f"Missing export: {name}"

@@ -5,42 +5,15 @@ Centralizing exceptions here prevents duplication and ensures consistent
 error handling patterns.
 
 Exception Hierarchy:
-    EncryptionError (base for crypto errors)
-    ├── DecryptionError (decryption failures)
-
     PrivacyViolationError (DPDPA/HIPAA violations)
-    AuthorizationError (access control failures)
     ConfigurationError (invalid configuration)
 
 Usage:
-    >>> from reportalin.core.exceptions import DecryptionError
-    >>> raise DecryptionError("Invalid key")
+    >>> from reportalin.core.exceptions import ConfigurationError
+    >>> raise ConfigurationError("Missing required setting")
 """
 
 from __future__ import annotations
-
-
-class EncryptionError(Exception):
-    """Base class for encryption-related errors.
-
-    Raised when encryption operations fail due to invalid keys,
-    corrupted data, or unsupported algorithms.
-    """
-
-    pass
-
-
-class DecryptionError(EncryptionError):
-    """Raised when decryption fails.
-
-    This can occur due to:
-    - Invalid decryption key
-    - Corrupted ciphertext
-    - Authentication tag mismatch (GCM mode)
-    - Unsupported encryption algorithm
-    """
-
-    pass
 
 
 class PrivacyViolationError(Exception):
@@ -63,18 +36,6 @@ class PrivacyViolationError(Exception):
         self.threshold = threshold
 
 
-class AuthorizationError(Exception):
-    """Raised when authorization checks fail.
-
-    This exception is raised when:
-    - User lacks required permissions
-    - Access token is invalid or expired
-    - Resource access is denied
-    """
-
-    pass
-
-
 class ConfigurationError(Exception):
     """Raised when configuration is invalid.
 
@@ -88,9 +49,6 @@ class ConfigurationError(Exception):
 
 
 __all__ = [
-    "EncryptionError",
-    "DecryptionError",
     "PrivacyViolationError",
-    "AuthorizationError",
     "ConfigurationError",
 ]

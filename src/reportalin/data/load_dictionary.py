@@ -64,9 +64,9 @@ import pandas as pd
 from tqdm import tqdm
 
 from reportalin.core import config
-from reportalin.data.utils import logging as log
+from reportalin.logging import get_logger
 
-vlog = log.get_verbose_logger()
+logger = get_logger(__name__)
 
 
 def _deduplicate_columns(columns) -> list[str]:
@@ -152,7 +152,7 @@ def _process_and_save_tables(
     folder_name = "".join(c for c in sheet_name if c.isalnum() or c in "._- ").strip()
     sheet_dir = os.path.join(output_dir, folder_name)
     os.makedirs(sheet_dir, exist_ok=True)
-    log.debug(f"Processing {len(all_tables)} tables from sheet '{sheet_name}'")
+    logger.debug(f"Processing {len(all_tables)} tables from sheet '{sheet_name}'")
     ignore_mode = False
 
     for i, table_df in enumerate(all_tables):
@@ -163,12 +163,7 @@ def _process_and_save_tables(
         if not ignore_mode:
             for idx, col in enumerate(table_df.iloc[0]):
                 if "ignore below" in str(col).lower().strip():
-                    log.info(
-                        f"'ignore below' found in table {i + 1}. Subsequent → 'extraas'."
-                    )
-                    vlog.detail(
-                        f"'ignore below' found in table {i + 1}. Subsequent → 'extraas'."
-                    )
+                    logger.info(f"'ignore below' found in table {i + 1}. Subsequent → 'extraas'.")
                     ignore_mode = True
                     table_df = table_df.drop(table_df.columns[idx], axis=1)
                     break
@@ -192,24 +187,20 @@ def _process_and_save_tables(
             output_path = os.path.join(sheet_dir, f"{table_name}.jsonl")
 
         if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-            log.warning(f"File exists. Skipping: {output_path}")
-            vlog.detail(f"File exists. Skipping: {output_path}")
+            logger.debug(f"File exists. Skipping: {output_path}")
             continue
 
-        # Verbose logging for each table
-        with vlog.step(f"Table {i + 1} ({table_name})"):
-            vlog.metric("Rows", len(table_df))
-            vlog.metric("Columns", len(table_df.columns))
-
-            table_df["__sheet__"], table_df["__table__"] = sheet_name, metadata_name
-            table_df.to_json(
-                output_path, orient="records", lines=True, force_ascii=False
-            )
-            log.info(f"Saved {len(table_df)} rows → '{output_path}'")
-            vlog.detail(f"Saved to: {output_path}")
-
-            table_elapsed = time.time() - table_start
-            vlog.timing("Table processing time", table_elapsed)
+        # Save table as JSONL
+        logger.debug(f"Table {i + 1} ({table_name}): {len(table_df)} rows, {len(table_df.columns)} cols")
+        
+        table_df["__sheet__"], table_df["__table__"] = sheet_name, metadata_name
+        table_df.to_json(
+            output_path, orient="records", lines=True, force_ascii=False
+        )
+        logger.info(f"Saved {len(table_df)} rows → '{output_path}'")
+        
+        table_elapsed = time.time() - table_start
+        logger.debug(f"Table processing time: {table_elapsed:.2f}s")
 
 
 def process_excel_file(
@@ -229,90 +220,75 @@ def process_excel_file(
     overall_start = time.time()
 
     if not os.path.exists(excel_path):
-        log.error(f"Input file not found: {excel_path}")
+        logger.error(f"Input file not found: {excel_path}")
         return False
 
-    log.info(f"Output → '{output_dir}'")
+    logger.info(f"Output → '{output_dir}'")
     os.makedirs(output_dir, exist_ok=True)
 
     try:
         xls = pd.ExcelFile(excel_path)
-        log.debug(
-            f"Excel file loaded successfully. Found {len(xls.sheet_names)} sheets: {xls.sheet_names}"
-        )
+        logger.info(f"Found {len(xls.sheet_names)} sheets")
     except Exception as e:
-        log.error(f"Failed to read Excel: {e}")
+        logger.error(f"Failed to read Excel: {e}")
         return False
 
-    log.info(f"Processing: '{excel_path}'")
+    logger.info(f"Processing: '{excel_path}'")
     success = True
 
-    # Start verbose logging context
-    with vlog.file_processing(
-        os.path.basename(excel_path), total_records=len(xls.sheet_names)
+    # Progress bar for processing sheets
+    for sheet_index, sheet_name in enumerate(
+        tqdm(
+            xls.sheet_names,
+            desc="Processing sheets",
+            unit="sheet",
+            file=sys.stdout,
+            dynamic_ncols=True,
+            leave=True,
+            bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]",
+        )
     ):
-        vlog.metric("Total sheets", len(xls.sheet_names))
+        sheet_start = time.time()
+        try:
+            tqdm.write(f"--- Sheet: '{sheet_name}' ---")
+            # Read Excel with appropriate options
+            if preserve_na:
+                df = pd.read_excel(
+                    xls,
+                    sheet_name=sheet_name,
+                    header=None,
+                    keep_default_na=False,
+                    na_values=[""],
+                )
+            else:
+                df = pd.read_excel(xls, sheet_name=sheet_name, header=None)
+            all_tables = _split_sheet_into_tables(df)
 
-        # Progress bar for processing sheets
-        for sheet_index, sheet_name in enumerate(
-            tqdm(
-                xls.sheet_names,
-                desc="Processing sheets",
-                unit="sheet",
-                file=sys.stdout,
-                dynamic_ncols=True,
-                leave=True,
-                bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]",
-            )
-        ):
-            sheet_start = time.time()
-            try:
-                with vlog.step(
-                    f"Sheet {sheet_index + 1}/{len(xls.sheet_names)}: '{sheet_name}'"
-                ):
-                    tqdm.write(f"--- Sheet: '{sheet_name}' ---")
-                    # Read Excel with appropriate options
-                    if preserve_na:
-                        df = pd.read_excel(
-                            xls,
-                            sheet_name=sheet_name,
-                            header=None,
-                            keep_default_na=False,
-                            na_values=[""],
-                        )
-                    else:
-                        df = pd.read_excel(xls, sheet_name=sheet_name, header=None)
-                    all_tables = _split_sheet_into_tables(df)
+            if not all_tables:
+                logger.debug(f"No tables found in '{sheet_name}'")
+            else:
+                tqdm.write(f"INFO: Found {len(all_tables)} table(s) in '{sheet_name}'")
+                logger.debug(f"Processing {len(all_tables)} tables from '{sheet_name}'")
+                # Ensure sheet_name is a string
+                sheet_name_str = str(sheet_name)
+                _process_and_save_tables(all_tables, sheet_name_str, output_dir)
 
-                    if not all_tables:
-                        tqdm.write(f"INFO: No tables found in '{sheet_name}'")
-                        vlog.detail("No tables found in this sheet")
-                    else:
-                        tqdm.write(
-                            f"INFO: Found {len(all_tables)} table(s) in '{sheet_name}'"
-                        )
-                        vlog.metric("Tables detected", len(all_tables))
-                        # Ensure sheet_name is a string
-                        sheet_name_str = str(sheet_name)
-                        _process_and_save_tables(all_tables, sheet_name_str, output_dir)
-
-                    sheet_elapsed = time.time() - sheet_start
-                    vlog.timing("Sheet processing time", sheet_elapsed)
-            except Exception as e:
-                tqdm.write(f"ERROR: Error on sheet '{sheet_name}': {e}")
-                log.error(f"Error processing sheet '{sheet_name}': {e}")
-                vlog.detail(f"ERROR: {e!s}")
-                sheet_elapsed = time.time() - sheet_start
-                vlog.timing("Sheet processing time before error", sheet_elapsed)
-                success = False
+            sheet_elapsed = time.time() - sheet_start
+            logger.debug(f"Sheet processing time: {sheet_elapsed:.2f}s")
+        except Exception as e:
+            tqdm.write(f"ERROR: Error on sheet '{sheet_name}': {e}")
+            logger.error(f"Error processing sheet '{sheet_name}': {e}")
+            sheet_elapsed = time.time() - sheet_start
+            logger.debug(f"Sheet processing time before error: {sheet_elapsed:.2f}s")
+            success = False
 
     overall_elapsed = time.time() - overall_start
-    vlog.timing("Overall processing time", overall_elapsed)
+    logger.info(f"Overall processing time: {overall_elapsed:.2f}s")
 
     if success:
-        log.success("Excel processing complete!")
+        logger.info("Excel processing complete!")
     else:
-        log.warning("Excel processing completed with some errors")
+        logger.warning("Excel processing completed with some errors")
 
     return success
 
@@ -342,19 +318,11 @@ def load_study_dictionary(
 
 
 if __name__ == "__main__":
-    # Initialize logger when running as standalone script
-    log.setup_logger(
-        name="load_dictionary",
-        log_level=config.LOG_LEVEL if hasattr(config, "LOG_LEVEL") else 20,
-    )
-
+    from reportalin.logging import configure_logging
+    
+    # Configure centralized logging with email notifications BEFORE any module imports logger
+    configure_logging(level="INFO", format="console", force=True)
+    
     success = load_study_dictionary(preserve_na=True)
-    if success:
-        log.success(
-            f"Processing complete for data dictionary from {config.DICTIONARY_EXCEL_FILE}"
-        )
-    else:
-        log.error(
-            f"Processing failed for data dictionary from {config.DICTIONARY_EXCEL_FILE}"
-        )
+    if not success:
         sys.exit(1)

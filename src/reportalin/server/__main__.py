@@ -25,10 +25,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 
 from reportalin.core.config import get_settings
-from reportalin.core.logging import configure_logging, get_logger
+from reportalin.logging import configure_logging, get_logger
 
 
 def parse_args() -> argparse.Namespace:
@@ -124,8 +125,28 @@ def main() -> int:
         return 0
 
     # Configure logging (structlog already outputs to stderr)
-    configure_logging()
+    # Email alerts ENABLED BY DEFAULT for production error monitoring
+    # Only disable explicitly for local dev/testing via DISABLE_EMAIL_ALERTS=true
+    disable_email = os.getenv("DISABLE_EMAIL_ALERTS", "false").lower() in ("true", "1", "yes")
+    enable_email = not disable_email
+    log_level = os.getenv("LOG_LEVEL", "INFO")
+    log_format = os.getenv("LOG_FORMAT", "console")
+    
+    # Validate log format
+    if log_format not in ("json", "console"):
+        log_format = "console"
+    
+    configure_logging(
+        level=log_level,
+        format=log_format,  # type: ignore[arg-type]
+        enable_email=enable_email,
+    )
     logger = get_logger(__name__)
+    
+    if enable_email:
+        logger.info("Email alerts ENABLED (default production mode)")
+    else:
+        logger.info("Email alerts DISABLED (dev mode - set via DISABLE_EMAIL_ALERTS=true)")
 
     # Get settings
     settings = get_settings()
