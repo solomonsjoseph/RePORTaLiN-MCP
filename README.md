@@ -30,15 +30,18 @@ Email notifications are **ENABLED BY DEFAULT**. All ERROR/CRITICAL logs automati
 2. **Edit `.env`** with your SMTP credentials:
 
 ```bash
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
+# Gmail (auto-detected if ERROR_EMAIL_FROM is @gmail.com)
+ERROR_EMAIL_FROM=your-email@gmail.com
+ERROR_EMAIL_TO=developer@example.com
 SMTP_USERNAME=your-email@gmail.com
 SMTP_PASSWORD=your-app-password  # Generate at https://myaccount.google.com/apppasswords
-ERROR_EMAIL_TO=developer@example.com
-ERROR_EMAIL_FROM=reportalin@example.com
+
+# Or use SendGrid/Mailgun (recommended for production - see .env.email.example)
 ```
 
-Gmail users: Use an [App Password](https://myaccount.google.com/apppasswords), not your regular password.
+**Gmail users:** You MUST use an [App Password](https://myaccount.google.com/apppasswords), not your regular password. Gmail SMTP is auto-configured when `ERROR_EMAIL_FROM` contains `@gmail.com`.
+
+**Production:** Use SendGrid, Mailgun, or AWS SES for better deliverability. See `.env.email.example` for full configuration options.
 
 ### Development Mode (Disable Emails)
 

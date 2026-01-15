@@ -140,21 +140,7 @@ def configure_logging(
         }
         
         # Create actual SMTP handler (runs in background thread)
-        smtp_handler = logging.handlers.SMTPHandler(
-            mailhost=(
-                os.getenv("SMTP_HOST", "localhost"),
-                int(os.getenv("SMTP_PORT", "587")),
-            ),
-            fromaddr=os.getenv("ERROR_EMAIL_FROM", "reportalin-mcp@localhost"),
-            toaddrs=[os.getenv("ERROR_EMAIL_TO", "admin@localhost")],
-            subject=f"{os.getenv('ERROR_EMAIL_SUBJECT_PREFIX', '[RePORTaLiN Error]')} Application Error",
-            credentials=(
-                os.getenv("SMTP_USERNAME"),
-                os.getenv("SMTP_PASSWORD"),
-            ) if os.getenv("SMTP_USERNAME") else None,
-            secure=() if os.getenv("SMTP_USE_TLS", "true").lower() == "true" else None,
-        )
-        smtp_handler.setLevel(os.getenv("ERROR_EMAIL_LEVEL", "ERROR"))
+        smtp_handler = _create_smtp_handler()
         
         # Start queue listener in background thread
         global _email_queue_listener
@@ -315,6 +301,89 @@ def _can_enable_email() -> bool:
     """Check if email notifications can be enabled based on environment variables."""
     required_vars = ["SMTP_HOST", "ERROR_EMAIL_TO", "ERROR_EMAIL_FROM"]
     return all(os.getenv(var) for var in required_vars)
+
+
+def _get_gmail_smtp_config() -> tuple[str, int] | None:
+    """Get Gmail SMTP configuration if Gmail is detected.
+    
+    Returns:
+        Tuple of (host, port) for Gmail SMTP, or None if not Gmail.
+        
+    Note:
+        Gmail requires App Passwords (not regular passwords) since May 2022.
+        See: https://support.google.com/accounts/answer/185833
+        
+        To create an App Password:
+        1. Enable 2-Step Verification on your Google Account
+        2. Visit: https://myaccount.google.com/apppasswords
+        3. Generate app-specific password for "Mail"
+        4. Use that 16-character password in SMTP_PASSWORD env var
+        
+        IMPORTANT: For production, use a dedicated email service instead:
+        - SendGrid (free tier: 100 emails/day)
+        - Mailgun (free tier: 100 emails/day)  
+        - AWS SES (pay-as-you-go)
+        - Postmark (free tier: 100 emails/month)
+        
+        These services provide better deliverability, reliability, and features
+        compared to Gmail SMTP which is rate-limited (500 emails/day).
+    """
+    email_from = os.getenv("ERROR_EMAIL_FROM", "").lower()
+    
+    # Detect Gmail addresses
+    if "@gmail.com" in email_from or "@googlemail.com" in email_from:
+        # Gmail SMTP with TLS (recommended)
+        return ("smtp.gmail.com", 587)
+    
+    return None
+
+
+def _create_smtp_handler() -> logging.handlers.SMTPHandler:
+    """Create and configure SMTP handler for email notifications.
+    
+    Returns:
+        Configured SMTPHandler instance.
+        
+    Raises:
+        ValueError: If Gmail is detected but no App Password is configured.
+    """
+    smtp_host = os.getenv("SMTP_HOST", "localhost")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_username = os.getenv("SMTP_USERNAME")
+    smtp_password = os.getenv("SMTP_PASSWORD")
+    use_tls = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
+    
+    # Gmail-specific configuration
+    gmail_config = _get_gmail_smtp_config()
+    if gmail_config:
+        smtp_host, smtp_port = gmail_config
+        if not smtp_password:
+            raise ValueError(
+                "Gmail SMTP requires an App Password. "
+                "Regular Gmail passwords do NOT work (deprecated since May 2022). "
+                "\n\nTo create an App Password:"
+                "\n1. Enable 2-Step Verification: https://myaccount.google.com/security"
+                "\n2. Generate App Password: https://myaccount.google.com/apppasswords"
+                "\n3. Set SMTP_PASSWORD env var to the 16-character app password"
+                "\n\nIMPORTANT: For production, use a dedicated email service instead:"
+                "\n- SendGrid (free tier: 100 emails/day)"
+                "\n- Mailgun (free tier: 100 emails/day)"
+                "\n- AWS SES (pay-as-you-go)"
+            )
+    
+    # Create SMTP handler
+    handler = logging.handlers.SMTPHandler(
+        mailhost=(smtp_host, smtp_port),
+        fromaddr=os.getenv("ERROR_EMAIL_FROM", "reportalin-mcp@localhost"),
+        toaddrs=[os.getenv("ERROR_EMAIL_TO", "admin@localhost")],
+        subject=f"{os.getenv('ERROR_EMAIL_SUBJECT_PREFIX', '[RePORTaLiN Error]')} Application Error",
+        credentials=(smtp_username, smtp_password) if smtp_username else None,
+        secure=() if use_tls else None,
+        timeout=30,  # Add explicit timeout for Gmail
+    )
+    handler.setLevel(os.getenv("ERROR_EMAIL_LEVEL", "ERROR"))
+    
+    return handler
 
 
 def _shutdown_email_queue() -> None:
