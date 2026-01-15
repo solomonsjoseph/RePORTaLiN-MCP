@@ -315,3 +315,4 @@ NOTES.md
 # OS files
 .DS_Store
 Thumbs.db
+src/reportalin/_version.py

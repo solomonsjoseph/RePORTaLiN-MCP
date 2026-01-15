@@ -11,7 +11,7 @@
 #   make clean    - Remove cache
 #   make nuclear  - 🚨 Fresh start (removes venv + results + cache)
 
-.PHONY: all help dev prod install extract serve serve-prod test lint clean nuclear
+.PHONY: all help dev prod install extract serve serve-prod test lint clean nuclear version
 
 .DEFAULT_GOAL := help
 
@@ -44,6 +44,7 @@ help:
 	@echo "🧪 Quality Commands:"
 	@echo "  make test       Run tests"
 	@echo "  make lint       Check code quality"
+	@echo "  make version    Show current version (from git tags)"
 	@echo ""
 	@echo "🧹 Cleanup Commands:"
 	@echo "  make clean      Remove cache/logs"
@@ -91,6 +92,26 @@ test:
 lint:
 	uv run ruff check src/ tests/
 
+version:
+	@echo "════════════════════════════════════════════════════════════"
+	@echo "  RePORTaLiN MCP Server - Version Information"
+	@echo "════════════════════════════════════════════════════════════"
+	@echo ""
+	@echo "📦 Current Version (from git tags):"
+	@uv run python -m setuptools_scm 2>/dev/null || echo "   Error: setuptools-scm not configured"
+	@echo ""
+	@echo "🏷️  Latest Git Tags:"
+	@git tag --sort=-version:refname | head -5 || echo "   No tags found"
+	@echo ""
+	@echo "📝 Version Details:"
+	@uv run python -c "from reportalin import __version__, __version_info__; print(f'   Package: {__version__}'); print(f'   Tuple:   {__version_info__}')" 2>/dev/null || echo "   Error: Package not installed"
+	@echo ""
+	@echo "💡 To create a new version:"
+	@echo "   git tag v0.4.0 && git push origin v0.4.0"
+	@echo ""
+	@echo "📚 See VERSIONING.md for full documentation"
+	@echo "════════════════════════════════════════════════════════════"
+
 clean:
 	@echo "Cleaning cache files and directories..."
 	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
@@ -110,6 +131,7 @@ nuclear: clean
 	@echo "🚨 NUCLEAR CLEAN - This will PERMANENTLY DELETE:"
 	@echo "   • .venv/ (virtual environment)"
 	@echo "   • results/ (extracted JSONL files)"
+	@echo "   • src/reportalin/_version.py (auto-generated version file)"
 	@echo "   • All cache files"
 	@echo ""
 	@echo "You will need to run 'make dev' or 'make prod' to rebuild everything."
@@ -121,8 +143,10 @@ nuclear: clean
 		rm -rf .venv/ 2>/dev/null || true; \
 		echo "🗑️  Removing results/..."; \
 		rm -rf results/ 2>/dev/null || true; \
+		echo "🗑️  Removing auto-generated version file..."; \
+		rm -f src/reportalin/_version.py 2>/dev/null || true; \
 		echo "✓ Nuclear clean complete - workspace reset to fresh state"; \
-		echo "   Next step: Run 'make run' to rebuild everything"; \
+		echo "   Next step: Run 'make dev' to rebuild everything"; \
 	else \
 		echo "❌ Aborted - nothing was deleted"; \
 		exit 1; \

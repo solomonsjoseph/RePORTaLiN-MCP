@@ -4,7 +4,8 @@ Shared constants for the RePORTaLiN MCP system.
 Centralizes magic strings, default values, and configuration constants
 to ensure consistency and easy modification.
 
-Updated: December 2025 - MCP Protocol 2025-03-26 compliance
+Updated: January 2026 - MCP Protocol 2025-03-26 compliance
+Version: Automatically derived from git tags via setuptools-scm
 """
 
 from __future__ import annotations
@@ -44,7 +45,14 @@ __all__ = [
 
 # Server identification
 SERVER_NAME = "reportalin-mcp"
-SERVER_VERSION = "0.3.0"
+
+# Version automatically imported from git tags (managed by setuptools-scm)
+try:
+    from reportalin._version import __version__ as SERVER_VERSION
+except ImportError:
+    # Fallback for development without proper install
+    SERVER_VERSION = "0.0.0+unknown"
+
 # MCP Protocol version - updated to latest stable (March 2025)
 # See: https://spec.modelcontextprotocol.io/specification/
 PROTOCOL_VERSION = "2025-03-26"

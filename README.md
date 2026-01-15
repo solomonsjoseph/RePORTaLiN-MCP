@@ -137,11 +137,23 @@ result = search("relapse")
 - **Hierarchical**: Logger names follow module structure (`reportalin.server.tools.search`)
 - **Email Alerts**: ERROR/CRITICAL logs automatically email developer (enabled by default)
 
-**TL;DR**:
-1. Create `src/reportalin/server/tools/[tool_name].py`
-2. Export in `src/reportalin/server/tools/__init__.py`
-3. Register in `src/reportalin/server/tools/registry.py`
-4. Add tests in `tests/unit/test_[tool_name].py`
+## Versioning
+
+Versions are **automatically derived from Git tags** (no manual edits):
+
+```bash
+# Create a new version
+git tag v0.4.0       # Bump minor version
+git push origin v0.4.0
+
+# Check current version
+make version
+```
+
+Version format: `v{MAJOR}.{MINOR}.{PATCH}` (e.g., v0.3.0, v1.0.0)  
+Managed by: `setuptools-scm` (2026 PyPA standard)
+
+## Development
 
 ### Running Tests
 

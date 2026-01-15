@@ -7,7 +7,9 @@
 
 [project]
 name = "reportalin-mcp"
-version = "0.3.0"
+# Version is AUTOMATICALLY derived from git tags via setuptools-scm
+# DO NOT manually set version here - use: git tag v0.3.0
+dynamic = ["version"]
 description = "Data Dictionary Expert MCP server for RePORT India TB clinical research - variable discovery and metadata lookup"
 readme = "README.md"
 license = { text = "MIT" }
@@ -116,8 +118,9 @@ reportalin-mcp = "reportalin.server.__main__:main"
 # Build System
 # -----------------------------------------------------------------------------
 [build-system]
-requires = ["hatchling>=1.21.0"]
-build-backend = "hatchling.build"
+# setuptools-scm: Automatic versioning from git tags (2026 best practice)
+requires = ["setuptools>=80", "setuptools-scm[toml]>=8"]
+build-backend = "setuptools.build_meta"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/reportalin"]
@@ -145,6 +148,7 @@ dev = [
     "black>=24.0.0",
     "ruff>=0.5.0",
     "mypy>=1.10.0",
+    "setuptools-scm[toml]>=9.2.2",
 ]
 
 # -----------------------------------------------------------------------------
@@ -294,4 +298,21 @@ exclude_lines = [
     "@abstractmethod",
 ]
 show_missing = true
-fail_under = 80
+
+# -----------------------------------------------------------------------------
+# Automatic Versioning (setuptools-scm)
+# -----------------------------------------------------------------------------
+[tool.setuptools_scm]
+# Version derived from git tags (v0.3.0, v1.0.0, etc.)
+# Recommended tag format: v{MAJOR}.{MINOR}.{PATCH}
+# Examples: v0.3.0, v1.0.0, v1.0.0-rc1
+#
+# Create a new version:
+#   git tag v0.4.0
+#   git push origin v0.4.0
+#
+# Development versions automatically suffixed with .devN+hash
+write_to = "src/reportalin/_version.py"
+version_scheme = "python-simplified-semver"
+local_scheme = "no-local-version"
+fallback_version = "0.0.0+unknown"
