@@ -1,58 +1,68 @@
 # RePORTaLiN MCP Server
 
-> **Minimal MCP server with ONE tool: variable search for RePORT India TB study data dictionary**
+> **Smart clinical variable discovery for RePORT India TB study - 3 intelligent tools**
 
 ## What It Does
 
-Exposes a single MCP tool (`search`) that finds variables from the RePORT India data dictionary based on clinical concepts. Better than SQL because it understands synonyms (e.g., "relapse" finds "recurrence", "recur", "recurrent").
+Provides intelligent variable search for the RePORT India tuberculosis cohort study. Designed for researchers, data scientists, and Claude AI to quickly find relevant clinical variables with privacy-by-default.
 
-**User asks**: "What variables track TB relapse?"  
-**Claude calls**: `search("relapse")`  
-**Returns**: 10 variables (TBNEW, TBREP, OUTCLIN, etc.) with descriptions and codelists
+### Three Tools (Use combined_search First!)
+
+1. **`combined_search`** 🌟 **USE THIS FIRST** - One-stop smart search across dictionary AND datasets
+2. **`search`** - Dictionary-only search when you need definitions without dataset info
+3. **`list_dataset_headers`** - Dataset-only listing when you only need available variables
+
+### Example Usage
+
+**PRIMARY TOOL - Combined Search (RECOMMENDED):**
+```
+User: "What HIV variables do we have?"
+Tool: combined_search("HIV")
+Returns: HIV variables from dictionary + which are available in datasets + summary
+```
+
+**Dictionary-only search (when you don't need dataset info):**
+```
+User: "What variables track TB relapse?"
+Tool: search("relapse")
+Returns: Variables for relapse, recurrence, treatment outcomes (definitions only)
+```
+
+**Dataset-only listing (when you only need availability):**
+```
+User: "What TST variables are documented?"
+Tool: list_dataset_headers("TST")
+Returns: All TST variables with descriptions
+```
+
+## Key Features
+
+- **Privacy-First**: No file names or internal details exposed to LLM
+- **Concept Understanding**: "relapse" finds "recurrence", "recur" automatically
+- **Clinical Synonyms**: "diabetes" expands to DM, glucose, HbA1c, OGTT
+- **Structured Output**: Ready for analysis planning
+- **Fast**: Instant concept-based retrieval
 
 ## Quick Start
 
 ```bash
-# Development (local testing)
-make dev      # Installs deps, extracts data, starts server
+# Setup system (install + extract data)
+make run
 
-# Production (with email alerts)
-make prod     # Requires .env.email configured
-```
+# Then start server for Claude Desktop
+make serve
 
-## Email Alerts (REQUIRED for Production)
-
-Email notifications are **ENABLED BY DEFAULT**. All ERROR/CRITICAL logs automatically email the developer.
-
-### Setup (Required)
-
-1. **Copy template**: `cp .env.email.example .env`
-2. **Edit `.env`** with your SMTP credentials:
-
-```bash
-# Gmail (auto-detected if ERROR_EMAIL_FROM is @gmail.com)
-ERROR_EMAIL_FROM=your-email@gmail.com
-ERROR_EMAIL_TO=developer@example.com
-SMTP_USERNAME=your-email@gmail.com
-SMTP_PASSWORD=your-app-password  # Generate at https://myaccount.google.com/apppasswords
-
-# Or use SendGrid/Mailgun (recommended for production - see .env.email.example)
-```
-
-**Gmail users:** You MUST use an [App Password](https://myaccount.google.com/apppasswords), not your regular password. Gmail SMTP is auto-configured when `ERROR_EMAIL_FROM` contains `@gmail.com`.
-
-**Production:** Use SendGrid, Mailgun, or AWS SES for better deliverability. See `.env.email.example` for full configuration options.
-
-### Development Mode (Disable Emails)
-
-For local testing without SMTP setup:
-
-```bash
-export DISABLE_EMAIL_ALERTS=true
+# Or run full dev cycle
 make dev
 ```
 
-**Production:** Never set `DISABLE_EMAIL_ALERTS`. Email alerts are your error monitoring system.
+Individual commands:
+```bash
+make install    # Install dependencies
+make extract    # Process data dictionary
+make serve      # Start MCP server (stdio - waits for Claude)
+make test       # Run tests
+```
 
 ## Claude Desktop Integration
 
@@ -62,128 +72,50 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "reportalin": {
-      "command": "/path/to/uv",
-      "args": ["run", "--directory", "/path/to/RePORTaLiN-Agent", "reportalin-mcp"]
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "/absolute/path/to/RePORTaLiN-Agent",
+        "reportalin-mcp"
+      ]
     }
   }
 }
 ```
 
-Restart Claude Desktop. The `search` tool will be available.
+**Auto-generation (recommended):** Run `make config` to generate `claude_desktop_config.json` with the correct paths automatically. Then copy its contents to your Claude Desktop config.
 
-## Project Structure
+Replace `/absolute/path/to/RePORTaLiN-Agent` with your actual path if copying manually.
 
-```
-src/reportalin/
-├── server/
-│   ├── tools/
-│   │   ├── search.py        # PRIMARY TOOL: Variable search
-│   │   ├── _loaders.py      # Data loaders
-│   │   └── registry.py      # FastMCP registry
-│   ├── __main__.py          # Entry point
-│   └── main.py              # FastAPI app (25 lines)
-├── data/
-│   └── load_dictionary.py   # Excel → JSONL extractor
-├── logging.py               # Centralized logging with email notifications
-├── core/
-│   ├── config.py            # Settings
-│   ├── constants.py         # Constants
-│   └── exceptions.py        # Custom exceptions
-└── types/
-    └── models.py            # Pydantic models
+Restart Claude Desktop. All three tools (`combined_search`, `search`, `list_dataset_headers`) will be available.
 
-tests/
-├── unit/                    # 38 tests
-└── integration/             # 1 test
+## Logging Configuration
 
-data/
-└── data_dictionary_and_mapping_specifications/
-    └── RePORT_DEB_to_Tables_mapping.xlsx  # Source data
+**Development:** File logging is auto-enabled to `logs/reportalin.log` for easy debugging.
 
-results/
-└── data_dictionary_mappings/  # Generated JSONL files (18 files)
-```
+**Production:** Logs to stderr only (12-Factor App compliant). Use Docker/systemd to route logs.
 
-## Tool: search
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LOG_LEVEL` | `INFO` | Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL |
+| `LOG_FORMAT` | `console` | Output format: `console` (dev) or `json` (production) |
+| `LOG_FILE` | `logs/reportalin.log` (dev) | File path for persistent logs. Set to empty to disable. |
+| `ENVIRONMENT` | `local` | `local`/`development` enables file logging, `production` disables it |
 
-```python
-search(query: str) -> SearchResult
-```
-
-**What it does**: Searches the data dictionary for variables matching a clinical concept.
-
-**Parameters**:
-- `query` (str): Clinical concept or variable name (e.g., "HIV", "relapse", "diabetes")
-
-**Returns**: `SearchResult` with:
-- `variables`: List of matching variables (field name, description, table, codelist)
-- `codelists`: Related codelists with code/description pairs
-- `search_terms`: Terms searched (including synonyms)
-- `suggestion`: Helpful message if no results found
-
-**Example**:
-```python
-result = search("relapse")
-# Returns: 10 variables related to TB relapse/recurrence
-```
-
-**Synonyms** (built-in clinical concept expansion):
-- "relapse" → ["relapse", "recurrence", "recurrent", "recur"]
-- "diabetes" → ["diabetes", "diabetic", "glucose", "hba1c", "fbg", "rbg"]
-- "HIV" → ["hiv", "aids", "hivstat", "retroviral", "cd4"]
-- ... (see `src/reportalin/server/tools/search.py` for full list)
-
-## Logging Architecture
-
-- **Centralized**: All logging via `reportalin.logging.get_logger(__name__)`
-- **Structured**: JSON output in production, console colors in dev
-- **Hierarchical**: Logger names follow module structure (`reportalin.server.tools.search`)
-- **Email Alerts**: ERROR/CRITICAL logs automatically email developer (enabled by default)
-
-## Versioning
-
-Versions are **automatically derived from Git tags** (no manual edits):
-
+**Debug with verbose logging:**
 ```bash
-# Create a new version
-git tag v0.4.0       # Bump minor version
-git push origin v0.4.0
-
-# Check current version
-make version
+LOG_LEVEL=DEBUG make serve
+tail -f logs/reportalin.log  # Watch logs in real-time
 ```
 
-Version format: `v{MAJOR}.{MINOR}.{PATCH}` (e.g., v0.3.0, v1.0.0)  
-Managed by: `setuptools-scm` (2026 PyPA standard)
-
-## Development
-
-### Running Tests
-
-```bash
-make test       # Run all tests (39 tests)
-make lint       # Check code quality
-make clean      # Remove cache/logs
-```
-
-### Architecture
-
-- **Stateless**: No sessions, no auth, no database
-- **FastMCP**: MCP protocol via FastAPI + FastMCP library
-- **Transport**: SSE (Server-Sent Events)
-- **Logging**: Structlog with context propagation
-- **Data**: Excel → JSONL (extracted once, served from disk)
+Logs are rotated automatically (10MB max, 5 backups).
 
 ## Requirements
 
 - Python 3.13+
 - uv (package manager)
-- Dependencies: fastapi, fastmcp, structlog, pydantic
 
 ## License
 
-[Your License]
-
-## Contributing
-
-See [TOOL_DEVELOPMENT_GUIDE.md](TOOL_DEVELOPMENT_GUIDE.md) for contribution guidelines.
+MIT

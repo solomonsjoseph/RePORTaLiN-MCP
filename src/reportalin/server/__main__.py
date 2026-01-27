@@ -1,30 +1,20 @@
-"""
-RePORTaLiN MCP Server Entry Point.
-
-This module provides the main entry point for the MCP server.
-It handles:
-  - Command line argument parsing
-  - Transport selection (stdio/http/sse)
-  - Signal handling for graceful shutdown
-  - Server startup with uvicorn (http/sse) or mcp.run() (stdio)
+"""RePORTaLiN MCP Server Entry Point.
 
 Usage:
-    # Run stdio transport (for Claude Desktop)
+    # stdio (Claude Desktop)
     uv run python -m reportalin.server --transport stdio
 
-    # Run HTTP/SSE server (default for web clients)
-    uv run python -m reportalin.server --transport sse
+    # HTTP (Streamable HTTP - production)
+    uv run python -m reportalin.server --transport http
 
-    # Run with specific options
-    uv run python -m reportalin.server --host 0.0.0.0 --port 8000 --reload
-
-    # Or via uvicorn directly
+    # Or via uvicorn
     uv run uvicorn reportalin.server.main:app --host 0.0.0.0 --port 8000
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import sys
 
@@ -47,9 +37,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--transport",
         type=str,
-        choices=["stdio", "sse", "http"],
+        choices=["stdio", "http"],
         default=None,
-        help="Transport protocol: stdio (Claude Desktop), sse/http (web). Default from MCP_TRANSPORT env var.",
+        help="Transport: stdio (Claude Desktop) or http (Streamable HTTP). Default from MCP_TRANSPORT env var.",
     )
 
     parser.add_argument(
@@ -82,17 +72,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def run_stdio_server() -> int:
-    """
-    Run the MCP server in stdio mode for Claude Desktop integration.
-
-    In stdio mode:
-    - All JSON-RPC messages are read from stdin
-    - All JSON-RPC responses are written to stdout
-    - All logs MUST go to stderr to avoid corrupting the protocol
-
-    Returns:
-        Exit code (0 for success, non-zero for failure)
-    """
+    """Run MCP server in stdio mode (JSON-RPC via stdin/stdout)."""
     from reportalin.server.tools import mcp
 
     # Run the FastMCP server in stdio mode
@@ -124,29 +104,29 @@ def main() -> int:
         sys.stderr.write(f"MCP Protocol: {PROTOCOL_VERSION}\n")
         return 0
 
-    # Configure logging (structlog already outputs to stderr)
-    # Email alerts ENABLED BY DEFAULT for production error monitoring
-    # Only disable explicitly for local dev/testing via DISABLE_EMAIL_ALERTS=true
-    disable_email = os.getenv("DISABLE_EMAIL_ALERTS", "false").lower() in ("true", "1", "yes")
-    enable_email = not disable_email
+    # Configure centralized logging (stderr + optional file)
     log_level = os.getenv("LOG_LEVEL", "INFO")
     log_format = os.getenv("LOG_FORMAT", "console")
-    
+
+    # Auto-enable file logging for development debugging
+    # Production uses 12-Factor (stderr only, routed by Docker/systemd)
+    environment = os.getenv("ENVIRONMENT", "local").lower()
+    is_dev = environment in ("local", "development")
+    log_file = os.getenv("LOG_FILE") or ("logs/reportalin.log" if is_dev else None)
+
     # Validate log format
     if log_format not in ("json", "console"):
         log_format = "console"
-    
-    configure_logging(
-        level=log_level,
-        format=log_format,  # type: ignore[arg-type]
-        enable_email=enable_email,
-    )
+
+    # Logging already configured is fine (can happen in dev with make run)
+    with contextlib.suppress(RuntimeError):
+        configure_logging(
+            level=log_level,
+            format=log_format,  # type: ignore[arg-type]
+            log_file=log_file,
+        )
+
     logger = get_logger(__name__)
-    
-    if enable_email:
-        logger.info("Email alerts ENABLED (default production mode)")
-    else:
-        logger.info("Email alerts DISABLED (dev mode - set via DISABLE_EMAIL_ALERTS=true)")
 
     # Get settings
     settings = get_settings()
@@ -167,13 +147,18 @@ def main() -> int:
         if transport == "stdio":
             return run_stdio_server()
         else:
-            # HTTP/SSE transport via uvicorn
-            from reportalin.server.main import run_server
+            # Streamable HTTP transport via uvicorn
+            import uvicorn
 
-            run_server(
-                host=args.host,
-                port=args.port,
+            host = args.host or settings.mcp_host
+            port = args.port or settings.mcp_port
+
+            uvicorn.run(
+                "reportalin.server.main:app",
+                host=host,
+                port=port,
                 reload=args.reload,
+                log_level=log_level.lower(),
             )
             return 0
 

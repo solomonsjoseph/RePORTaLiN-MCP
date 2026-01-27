@@ -262,8 +262,15 @@ checkpoints/
 data/data_dictionary_and_mapping_specifications/~$*.xlsx
 ~$*.xlsx
 
-# Results directory (uncomment to exclude all results)
-# results/
+# Results directory (auto-generated JSONL files)
+results/
+
+# Development artifacts (internal documentation)
+*AUDIT*.md
+*IMPLEMENTATION*.md
+*VERIFICATION*.txt
+*SUMMARY*.md
+*ASSESSMENT*.md
 
 # Large data files (uncomment if needed)
 # data/dataset/
@@ -316,3 +323,4 @@ NOTES.md
 .DS_Store
 Thumbs.db
 src/reportalin/_version.py
+logs/

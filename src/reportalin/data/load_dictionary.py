@@ -56,9 +56,9 @@ from __future__ import annotations
 
 __all__ = ["load_study_dictionary", "process_excel_file"]
 
-import os
 import sys
 import time
+from pathlib import Path
 
 import pandas as pd
 from tqdm import tqdm
@@ -150,8 +150,8 @@ def _process_and_save_tables(
         metadata fields.
     """
     folder_name = "".join(c for c in sheet_name if c.isalnum() or c in "._- ").strip()
-    sheet_dir = os.path.join(output_dir, folder_name)
-    os.makedirs(sheet_dir, exist_ok=True)
+    sheet_dir = Path(output_dir) / folder_name
+    sheet_dir.mkdir(parents=True, exist_ok=True)
     logger.debug(f"Processing {len(all_tables)} tables from sheet '{sheet_name}'")
     ignore_mode = False
 
@@ -163,7 +163,9 @@ def _process_and_save_tables(
         if not ignore_mode:
             for idx, col in enumerate(table_df.iloc[0]):
                 if "ignore below" in str(col).lower().strip():
-                    logger.info(f"'ignore below' found in table {i + 1}. Subsequent → 'extraas'.")
+                    logger.info(
+                        f"'ignore below' found in table {i + 1}. Subsequent → 'extraas'."
+                    )
                     ignore_mode = True
                     table_df = table_df.drop(table_df.columns[idx], axis=1)
                     break
@@ -175,30 +177,30 @@ def _process_and_save_tables(
 
         table_suffix = f"_table_{i + 1}" if len(all_tables) > 1 else "_table"
         if ignore_mode:
-            extraas_dir = os.path.join(sheet_dir, "extraas")
-            os.makedirs(extraas_dir, exist_ok=True)
+            extraas_dir = sheet_dir / "extraas"
+            extraas_dir.mkdir(parents=True, exist_ok=True)
             table_name, metadata_name = (
                 f"extraas{table_suffix}",
                 f"{folder_name}_extraas{table_suffix}",
             )
-            output_path = os.path.join(extraas_dir, f"{table_name}.jsonl")
+            output_path = extraas_dir / f"{table_name}.jsonl"
         else:
             table_name = metadata_name = f"{folder_name}{table_suffix}"
-            output_path = os.path.join(sheet_dir, f"{table_name}.jsonl")
+            output_path = sheet_dir / f"{table_name}.jsonl"
 
-        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+        if output_path.exists() and output_path.stat().st_size > 0:
             logger.debug(f"File exists. Skipping: {output_path}")
             continue
 
         # Save table as JSONL
-        logger.debug(f"Table {i + 1} ({table_name}): {len(table_df)} rows, {len(table_df.columns)} cols")
-        
-        table_df["__sheet__"], table_df["__table__"] = sheet_name, metadata_name
-        table_df.to_json(
-            output_path, orient="records", lines=True, force_ascii=False
+        logger.debug(
+            f"Table {i + 1} ({table_name}): {len(table_df)} rows, {len(table_df.columns)} cols"
         )
+
+        table_df["__sheet__"], table_df["__table__"] = sheet_name, metadata_name
+        table_df.to_json(output_path, orient="records", lines=True, force_ascii=False)
         logger.info(f"Saved {len(table_df)} rows → '{output_path}'")
-        
+
         table_elapsed = time.time() - table_start
         logger.debug(f"Table processing time: {table_elapsed:.2f}s")
 
@@ -219,12 +221,12 @@ def process_excel_file(
     """
     overall_start = time.time()
 
-    if not os.path.exists(excel_path):
+    if not Path(excel_path).exists():
         logger.error(f"Input file not found: {excel_path}")
         return False
 
     logger.info(f"Output → '{output_dir}'")
-    os.makedirs(output_dir, exist_ok=True)
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     try:
         xls = pd.ExcelFile(excel_path)
@@ -237,7 +239,7 @@ def process_excel_file(
     success = True
 
     # Progress bar for processing sheets
-    for sheet_index, sheet_name in enumerate(
+    for _sheet_index, sheet_name in enumerate(
         tqdm(
             xls.sheet_names,
             desc="Processing sheets",
@@ -319,10 +321,10 @@ def load_study_dictionary(
 
 if __name__ == "__main__":
     from reportalin.logging import configure_logging
-    
-    # Configure centralized logging with email notifications BEFORE any module imports logger
+
+    # Configure centralized logging BEFORE any module imports logger
     configure_logging(level="INFO", format="console", force=True)
-    
+
     success = load_study_dictionary(preserve_na=True)
     if not success:
         sys.exit(1)

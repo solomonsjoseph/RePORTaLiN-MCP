@@ -11,11 +11,16 @@ Version Information:
 
 try:
     # Version automatically managed by setuptools-scm from git tags
-    from reportalin._version import __version__, __version_tuple__ as _raw_version_tuple
-    
+    from reportalin._version import __version__
+    from reportalin._version import __version_tuple__ as _raw_version_tuple
+
     # Extract clean version tuple (major, minor, patch) from setuptools-scm format
     if isinstance(_raw_version_tuple, tuple) and len(_raw_version_tuple) >= 3:
-        __version_info__ = (_raw_version_tuple[0], _raw_version_tuple[1], _raw_version_tuple[2])
+        __version_info__ = (
+            _raw_version_tuple[0],
+            _raw_version_tuple[1],
+            _raw_version_tuple[2],
+        )
     else:
         __version_info__ = (0, 0, 0)
 except ImportError:

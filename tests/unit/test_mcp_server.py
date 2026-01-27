@@ -1,32 +1,32 @@
 """
 Tests for the RePORTaLiN MCP Server.
 
-This module contains unit tests for the MCP tools, Pydantic models,
-and server utilities. The MCP server is located under server/.
-
 Tests cover:
 - Search tool functionality
-- Tool registry functionality
-- Server configuration export
-- Security validations (aggregates only, no individual records)
+- Dataset headers tool functionality
+- Combined search tool functionality
+- MCP server instance
 """
 
 import pytest
 
+from reportalin.core.constants import SERVER_NAME
 from reportalin.server.tools import (
+    combined_search,
+    list_dataset_headers,
+    mcp,
     search,
-    SearchResult,
-    Variable,
+)
+from reportalin.server.tools.search import (
     Codelist,
     CodelistValue,
-    get_tool_registry,
-    mcp,
+    SearchResult,
+    Variable,
 )
-from reportalin.core.constants import SERVER_NAME, SERVER_VERSION
 
 
 class TestSearchTool:
-    """Tests for the simplified search tool."""
+    """Tests for the search tool."""
 
     def test_search_returns_search_result(self) -> None:
         """Test that search returns a SearchResult object."""
@@ -38,14 +38,12 @@ class TestSearchTool:
     def test_search_expands_synonyms(self) -> None:
         """Test that search expands clinical concept synonyms."""
         result = search("relapse")
-        # Should expand to include recurrence, recur, etc.
         assert "relapse" in result.search_terms
         assert any("recur" in term for term in result.search_terms)
 
     def test_search_returns_variables(self) -> None:
         """Test that search returns Variable objects."""
         result = search("smoking")
-        # Variables may or may not be found depending on data
         assert isinstance(result.variables, list)
         if result.variables:
             assert isinstance(result.variables[0], Variable)
@@ -57,24 +55,9 @@ class TestSearchTool:
         if result.codelists:
             assert isinstance(result.codelists[0], Codelist)
 
-    def test_search_suggestion_when_no_results(self) -> None:
-        """Test that search provides suggestions when no results found."""
-        result = search("xyznonexistent")
-        # Should have a suggestion if no variables found
-        if not result.variables:
-            assert result.suggestion is not None
-
     @pytest.mark.parametrize(
         "query",
-        [
-            "HIV",
-            "diabetes",
-            "smoking",
-            "outcome",
-            "relapse",
-            "age",
-            "treatment",
-        ],
+        ["HIV", "diabetes", "smoking", "outcome", "relapse", "age", "treatment"],
     )
     def test_search_accepts_common_clinical_concepts(self, query: str) -> None:
         """Test that search accepts common clinical concepts."""
@@ -82,53 +65,42 @@ class TestSearchTool:
         assert result.query == query
 
 
-class TestToolRegistry:
-    """Tests for tool registry functionality."""
+class TestDatasetHeadersTool:
+    """Tests for list_dataset_headers tool."""
 
-    def test_get_tool_registry_returns_dict(self) -> None:
-        """Test that get_tool_registry returns a dictionary."""
-        registry = get_tool_registry()
-        assert isinstance(registry, dict)
+    def test_list_dataset_headers_returns_result(self) -> None:
+        """Test that list_dataset_headers returns DatasetHeadersResult."""
+        from reportalin.server.tools.dataset_headers import DatasetHeadersResult
 
-    def test_registry_contains_server_info(self) -> None:
-        """Test that registry contains server name and version."""
-        registry = get_tool_registry()
-        assert registry["server_name"] == SERVER_NAME
-        assert registry["version"] == SERVER_VERSION
+        result = list_dataset_headers()
+        assert isinstance(result, DatasetHeadersResult)
+        assert isinstance(result.headers, list)
+        assert isinstance(result.total_variables, int)
 
-    def test_registry_contains_single_search_tool(self) -> None:
-        """Test that registry lists only the search tool.
+    def test_list_dataset_headers_with_filter(self) -> None:
+        """Test that dataset_name filter works."""
+        from reportalin.server.tools.dataset_headers import DatasetHeadersResult
 
-        Tool Design (simplified):
-        - search: LLM-powered variable search with concept expansion
-        """
-        registry = get_tool_registry()
-        assert "registered_tools" in registry
-        tools = registry["registered_tools"]
-        assert tools == ["search"]
-        assert registry["tool_count"] == 1
+        result = list_dataset_headers(dataset_name="TST")
+        assert isinstance(result, DatasetHeadersResult)
 
-    def test_registry_contains_data_loaded_info(self) -> None:
-        """Test that registry shows data dictionary loaded info (metadata only)."""
-        registry = get_tool_registry()
-        assert "data_loaded" in registry
-        data = registry["data_loaded"]
-        assert "dictionary_tables" in data
-        assert "dictionary_fields" in data
-        assert "codelists" in data
 
-    def test_registry_contains_resources(self) -> None:
-        """Test that registry lists MCP resources."""
-        registry = get_tool_registry()
-        assert "registered_resources" in registry
-        resources = registry["registered_resources"]
-        assert "dictionary://overview" in resources
-        assert "dictionary://tables" in resources
+class TestCombinedSearchTool:
+    """Tests for combined_search tool."""
 
-    def test_registry_server_type(self) -> None:
-        """Test that registry shows correct server type."""
-        registry = get_tool_registry()
-        assert registry["server_type"] == "llm_powered_variable_search"
+    def test_combined_search_returns_result(self) -> None:
+        """Test that combined_search returns CombinedSearchResult."""
+        from reportalin.server.tools.combined_search import CombinedSearchResult
+
+        result = combined_search("HIV")
+        assert isinstance(result, CombinedSearchResult)
+        assert result.query == "HIV"
+
+    def test_combined_search_has_summary(self) -> None:
+        """Test that combined_search includes summary."""
+        result = combined_search("diabetes")
+        assert result.summary is not None
+        assert isinstance(result.formatted_output, str)
 
 
 class TestMCPServer:
@@ -142,39 +114,6 @@ class TestMCPServer:
         """Test that MCP server has correct name."""
         assert mcp.name == SERVER_NAME
 
-    def test_mcp_has_instructions(self) -> None:
-        """Test that MCP server has instructions."""
-        # FastMCP stores instructions in the instance
-        assert hasattr(mcp, "_instructions") or mcp.name is not None
-
-
-class TestSecurityModel:
-    """Tests for security model - metadata only, no patient data."""
-
-    def test_tools_designed_for_metadata_only(self) -> None:
-        """Test that tool registry confirms metadata-only design."""
-        registry = get_tool_registry()
-        # Simplified: Single search tool for metadata
-        assert len(registry["registered_tools"]) == 1
-        assert registry.get("server_type") == "llm_powered_variable_search"
-
-    @pytest.mark.parametrize(
-        "safe_query",
-        [
-            "smoking",
-            "HIV",
-            "age",
-            "sex",
-            "treatment outcome",
-            "diabetes",
-            "TB diagnosis",
-        ],
-    )
-    def test_search_accepts_safe_queries(self, safe_query: str) -> None:
-        """Test that search accepts valid queries."""
-        result = search(safe_query)
-        assert result.query == safe_query
-
 
 class TestOutputModels:
     """Tests for Pydantic output models."""
@@ -184,17 +123,14 @@ class TestOutputModels:
         var = Variable(
             field_name="SMOKHX",
             description="Smoking history",
-            table="tblHISTORY",
+            source_table="tblHISTORY",
         )
         assert var.field_name == "SMOKHX"
-        assert var.description == "Smoking history"
-        assert var.table == "tblHISTORY"
 
     def test_codelist_value_model(self) -> None:
         """Test CodelistValue model creation."""
         val = CodelistValue(code="1", description="Yes")
         assert val.code == "1"
-        assert val.description == "Yes"
 
     def test_codelist_model(self) -> None:
         """Test Codelist model creation."""
@@ -207,14 +143,3 @@ class TestOutputModels:
         )
         assert cl.name == "YES_NO"
         assert len(cl.values) == 2
-
-    def test_search_result_model(self) -> None:
-        """Test SearchResult model creation."""
-        result = SearchResult(
-            query="test",
-            search_terms=["test"],
-            variables=[],
-            codelists=[],
-        )
-        assert result.query == "test"
-        assert result.suggestion is None

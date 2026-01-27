@@ -1,153 +1,125 @@
-# RePORTaLiN MCP Server - Minimal Makefile
-# =========================================
-# A single-tool MCP server for variable search via Claude Desktop
-#
-# Quick Start (Choose Your Environment):
-#   make dev      - 🧑‍💻 Development: install + extract + serve (no email alerts)
-#   make prod     - 🚀 Production: install + extract + serve (WITH email alerts)
-#
-# Other Commands:
-#   make test     - Run tests
-#   make clean    - Remove cache
-#   make nuclear  - 🚨 Fresh start (removes venv + results + cache)
+# RePORTaLiN MCP Server - Makefile
+# ===================================
+# Simple build automation for 3-tool MCP server
 
-.PHONY: all help dev prod install extract serve serve-prod test lint clean nuclear version
+.PHONY: help install extract serve run nuke test clean config
 
 .DEFAULT_GOAL := help
 
-all: install extract
-	@echo "✓ Build complete - ready to run 'make serve'"
-
 help:
-	@echo "═══════════════════════════════════════════════════════════════"
-	@echo "  RePORTaLiN MCP Server - Variable Search Tool"
-	@echo "═══════════════════════════════════════════════════════════════"
+	@echo "══════════════════════════════════════════════"
+	@echo "  RePORTaLiN MCP Server"
+	@echo "══════════════════════════════════════════════"
 	@echo ""
-	@echo "🚀 Quick Start (Choose Your Environment):"
-	@echo "  make dev        🧑‍💻 Development mode (no email alerts)"
-	@echo "                  → install + extract + serve"
+	@echo "🚀 One-Command Workflows:"
+	@echo "  make run         Setup system (install + extract)"
+	@echo "  make dev         Full dev cycle (run + serve)"
+	@echo "  make nuke        Nuclear clean (wipe everything)"
 	@echo ""
-	@echo "  make prod       🚀 Production mode (with email alerts)"
-	@echo "                  → install + extract + serve with monitoring"
-	@echo "                  ⚠️  Requires: .env.email configured"
-	@echo ""
-	@echo "───────────────────────────────────────────────────────────────"
-	@echo "📦 Build Commands:"
-	@echo "  make all        Build everything (install + extract)"
-	@echo "  make install    Install dependencies (uv sync)"
-	@echo "  make extract    Extract Excel → JSONL"
-	@echo ""
-	@echo "🔧 Server Commands:"
-	@echo "  make serve      Start server (dev mode, no email)"
-	@echo "  make serve-prod Start server (prod mode, with email)"
-	@echo ""
-	@echo "🧪 Quality Commands:"
-	@echo "  make test       Run tests"
-	@echo "  make lint       Check code quality"
-	@echo "  make version    Show current version (from git tags)"
-	@echo ""
-	@echo "🧹 Cleanup Commands:"
-	@echo "  make clean      Remove cache/logs"
-	@echo "  make nuclear    🚨 REMOVE EVERYTHING (venv + results + cache)"
-	@echo ""
-	@echo "───────────────────────────────────────────────────────────────"
-	@echo "💡 Performance Tips:"
-	@echo "  make -j4 test   Run tests with 4 parallel jobs"
-	@echo "  make -j\$$(nproc) test  Use all CPU cores"
-	@echo "═══════════════════════════════════════════════════════════════"
+	@echo "📦 Individual Commands:"
+	@echo "  make install     Install dependencies"
+	@echo "  make extract     Extract data dictionary"
+	@echo "  make config      Generate Claude Desktop config"
+	@echo "  make serve       Start MCP server (stdio - waits for Claude)"
+	@echo "  make test        Run tests"
+	@echo "  make clean       Remove caches only"
+	@echo "══════════════════════════════════════════════"
 
-dev: install extract serve
-	@echo "✓ Development server complete"
+run: install extract config
+	@echo ""
+	@echo "✅ System ready!"
+	@echo ""
+	@echo "Next steps:"
+	@echo "  • Run 'make serve' to start stdio server (for Claude Desktop)"
+	@echo "  • Run 'make test' to verify functionality"
+	@echo "  • Or integrate with Claude Desktop (see README.md)"
+	@echo "  • Claude Desktop config generated at: claude_desktop_config.json"
+	@echo ""
 
-prod: install extract serve-prod
-	@echo "✓ Production server complete"
+dev: run serve
 
 install:
-	uv sync --extra data-prep
+	@echo "📦 Installing dependencies..."
+	@uv sync --extra data-prep
 
 extract:
-	uv run python -m reportalin.data.load_dictionary
+	@echo "📚 Extracting data dictionary..."
+	@uv run python -m reportalin.data.load_dictionary
+	@uv run python -m reportalin.data.load_dataset_headers
+	@echo "✅ Data extraction complete"
+
+config:
+	@echo "🔧 Generating Claude Desktop config..."
+	@uv run python scripts/generate_claude_config.py
+	@echo "✅ Claude Desktop config generated at: claude_desktop_config.json"
+	@echo "copying to claude desktop config location..."
+	@mkdir -p ~/Library/Application\ Support/Claude\ Desktop/configs
+	@cp claude_desktop_config.json ~/Library/Application\ Support/Claude\ Desktop/configs/claude_desktop_config.json
+	@echo "✅ Config copied to Claude Desktop configs folder."
 
 serve:
-	@echo "🧑‍💻 Starting development server (email alerts: disabled)..."
-	uv run python -m reportalin.server.__main__
-
-serve-prod:
-	@echo "🚀 Starting production server (email alerts: enabled)..."
-	@if [ ! -f .env.email ]; then \
-		echo "⚠️  WARNING: .env.email not found!"; \
-		echo "   Email alerts will be disabled unless SMTP_* env vars are set."; \
-		echo "   Copy .env.email.example to .env.email and configure it."; \
-		echo ""; \
-	fi
-	@echo "Loading production environment..."
-	@if [ -f .env.email ]; then \
-		set -a; source .env.email; set +a; \
-	fi; \
-	ENABLE_EMAIL_ALERTS=true uv run python -m reportalin.server.__main__
+	@echo "🚀 Starting MCP server (stdio mode)..."
+	@echo ""
+	@echo "⚠️  Server will wait for JSON-RPC input from Claude Desktop."
+	@echo "    This is NORMAL - the server is not stuck!"
+	@echo ""
+	@echo "    Press Ctrl+C to stop the server."
+	@echo ""
+	@trap 'echo ""; echo "🛑 Server stopped."; exit 0' INT TERM; \
+	uv run python -m reportalin.server; \
+	echo ""; echo "🛑 Server stopped."
 
 test:
-	uv run pytest tests/ -v
-
-lint:
-	uv run ruff check src/ tests/
-
-version:
-	@echo "════════════════════════════════════════════════════════════"
-	@echo "  RePORTaLiN MCP Server - Version Information"
-	@echo "════════════════════════════════════════════════════════════"
-	@echo ""
-	@echo "📦 Current Version (from git tags):"
-	@uv run python -m setuptools_scm 2>/dev/null || echo "   Error: setuptools-scm not configured"
-	@echo ""
-	@echo "🏷️  Latest Git Tags:"
-	@git tag --sort=-version:refname | head -5 || echo "   No tags found"
-	@echo ""
-	@echo "📝 Version Details:"
-	@uv run python -c "from reportalin import __version__, __version_info__; print(f'   Package: {__version__}'); print(f'   Tuple:   {__version_info__}')" 2>/dev/null || echo "   Error: Package not installed"
-	@echo ""
-	@echo "💡 To create a new version:"
-	@echo "   git tag v0.4.0 && git push origin v0.4.0"
-	@echo ""
-	@echo "📚 See VERSIONING.md for full documentation"
-	@echo "════════════════════════════════════════════════════════════"
+	@uv run pytest tests/ -v
 
 clean:
-	@echo "Cleaning cache files and directories..."
+	@echo "🧹 Cleaning caches..."
 	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	@find . -type f -name "*.pyc" -delete 2>/dev/null || true
+	@find . -type f -name "*verify*.py" -delete 2>/dev/null || true
 	@find . -type f -name "*.pyo" -delete 2>/dev/null || true
-	@find . -type f -name ".DS_Store" -delete 2>/dev/null || true
 	@find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
 	@rm -rf .pytest_cache .mypy_cache .ruff_cache 2>/dev/null || true
-	@rm -rf htmlcov .coverage .coverage.* 2>/dev/null || true
-	@rm -rf build/ dist/ *.egg-info 2>/dev/null || true
-	@rm -rf logs/*.log 2>/dev/null || true
-	@rm -rf .tox/ .nox/ 2>/dev/null || true
-	@find . -type f \( -name "*.tmp" -o -name "*.swp" -o -name "*~" \) -delete 2>/dev/null || true
-	@echo "✓ Clean complete - removed all cache, build, and temporary files"
+	@echo "✅ Cache cleanup complete"
 
-nuclear: clean
-	@echo "🚨 NUCLEAR CLEAN - This will PERMANENTLY DELETE:"
-	@echo "   • .venv/ (virtual environment)"
-	@echo "   • results/ (extracted JSONL files)"
-	@echo "   • src/reportalin/_version.py (auto-generated version file)"
-	@echo "   • All cache files"
+nuke:
+	@echo "💣 NUCLEAR CLEAN - Wiping everything..."
+	@echo "⚠️  This will delete:"
+	@echo "   - results/ (all extracted JSONL files)"
+	@echo "   - logs/ (all log files)"
+	@echo "   - Housekeeping files (*AUDIT*, *STATUS*, *SUMMARY*, *FIX*, etc.)"
+	@echo "   - Generated files (_version.py, claude_desktop_config.json, etc.)"
+	@echo "   - All Python caches"
+	@echo "   - Virtual environment (.venv)"
 	@echo ""
-	@echo "You will need to run 'make dev' or 'make prod' to rebuild everything."
-	@echo ""
-	@read -p "Are you sure you want to continue? (y/N): " -n 1 -r; \
+	@read -p "Continue? [y/N] " -n 1 -r; \
 	echo; \
 	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-		echo "🗑️  Removing .venv/..."; \
-		rm -rf .venv/ 2>/dev/null || true; \
-		echo "🗑️  Removing results/..."; \
-		rm -rf results/ 2>/dev/null || true; \
-		echo "🗑️  Removing auto-generated version file..."; \
+		rm -rf results/ logs/ .venv; \
+		find . -maxdepth 1 -type f \( \
+			-name "*AUDIT*.md" -o \
+			-name "*STATUS*.md" -o \
+			-name "*SUMMARY*.md" -o \
+			-name "*REPORT*.md" -o \
+			-name "*VERIFICATION*.md" -o \
+			-name "*IMPLEMENTATION*.md" -o \
+			-name "*ASSESSMENT*.md" -o \
+			-name "*FIX*.md" -o \
+			-name "CLEANUP_REPORT.md" -o \
+			-name "*STDIO*.md" -o \
+			-name "FIXES.md" -o \
+			-name "NOTES.md" -o \
+			-name "CHANGES.md" -o \
+			-name "claude_desktop_config.json" -o \
+			-name "test_claude_desktop_integration.py" \
+		\) -delete 2>/dev/null || true; \
 		rm -f src/reportalin/_version.py 2>/dev/null || true; \
-		echo "✓ Nuclear clean complete - workspace reset to fresh state"; \
-		echo "   Next step: Run 'make dev' to rebuild everything"; \
+		find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true; \
+		find . -type f -name "*.pyc" -delete 2>/dev/null || true; \
+		find . -type f -name "*.pyo" -delete 2>/dev/null || true; \
+		find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true; \
+		rm -rf .pytest_cache .mypy_cache .ruff_cache 2>/dev/null || true; \
+		echo "💥 Nuclear clean complete! Run 'make run' for fresh start."; \
 	else \
-		echo "❌ Aborted - nothing was deleted"; \
-		exit 1; \
+		echo "❌ Aborted."; \
 	fi

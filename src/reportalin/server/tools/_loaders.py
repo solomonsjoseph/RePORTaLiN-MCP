@@ -1,157 +1,123 @@
 """Data loading utilities for MCP tools.
 
-This module provides functions to load and cache data from:
-- Data dictionary JSONL files (preferred)
-- Excel files as fallback (requires optional data-prep dependencies)
-- Codelist definitions
-
-Note: Dataset loading removed in v3.0 - focus is data dictionary only.
-
-Excel Fallback:
-If JSONL files don't exist, attempts to load from source Excel file.
-Requires optional dependencies: uv pip install reportalin-mcp[data-prep]
+Provides cached loaders for:
+- Data dictionary (search tool)
+- Codelists (search tool)
+- Dataset headers (dataset_headers tool)
+- Unified results (combined_search tool)
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import TypedDict
 
 from reportalin.logging import get_logger
 
 __all__ = [
-    "DATA_DICTIONARY_PATH",
-    "EXCEL_SOURCE_PATH",
-    "load_data_dictionary",
-    "load_codelists",
-    "get_data_dictionary",
+    "get_all_results",
     "get_codelists",
+    "get_data_dictionary",
+    "get_dataset_headers",
 ]
 
-# Initialize logger
 logger = get_logger(__name__)
 
 # =============================================================================
 # Path Configuration
 # =============================================================================
 
-# __file__ is at: src/reportalin/server/tools/_loaders.py
-# Project root is 4 levels up: ../../../../
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.parent
 DATA_DICTIONARY_PATH = PROJECT_ROOT / "results" / "data_dictionary_mappings"
+DATASET_HEADERS_PATH = PROJECT_ROOT / "results" / "dataset_headers"
 EXCEL_SOURCE_PATH = (
-    PROJECT_ROOT
-    / "data"
-    / "data_dictionary_and_mapping_specifications"
+    PROJECT_ROOT / "data" / "data_dictionary_and_mapping_specifications"
     / "RePORT_DEB_to_Tables_mapping.xlsx"
 )
 
 
 # =============================================================================
-# Excel Fallback (Optional)
+# Type Definitions
+# =============================================================================
+
+
+class UnifiedResults(TypedDict):
+    """All data from results folder for combined_search."""
+
+    data_dictionary: dict[str, list[dict]]
+    codelists: dict[str, list[dict]]
+    dataset_headers: dict[str, list[str]]
+
+
+# =============================================================================
+# Internal Loaders
 # =============================================================================
 
 
 def _load_from_excel_fallback() -> dict[str, list[dict]]:
-    """Load data dictionary from Excel source file as fallback.
-
-    This function attempts to generate JSONL files from the Excel source
-    if they don't already exist. Requires optional data-prep dependencies.
-
-    Returns:
-        Dictionary mapping table names to field definitions.
-        Empty dict if Excel source doesn't exist or dependencies missing.
-    """
+    """Load data dictionary from Excel if JSONL missing. No recursion."""
     if not EXCEL_SOURCE_PATH.exists():
-        logger.warning(
-            f"Excel source file not found: {EXCEL_SOURCE_PATH}. "
-            "Cannot generate JSONL files."
-        )
+        logger.warning(f"Excel source not found: {EXCEL_SOURCE_PATH}")
         return {}
 
     try:
-        # Try importing the load_dictionary module (requires pandas/openpyxl)
         from reportalin.data.load_dictionary import load_study_dictionary
 
-        logger.info(
-            "JSONL files not found. Generating from Excel source "
-            f"(requires data-prep dependencies): {EXCEL_SOURCE_PATH}"
-        )
-
-        # Generate JSONL files from Excel
+        logger.info(f"Generating JSONL from Excel: {EXCEL_SOURCE_PATH}")
         load_study_dictionary(
             file_path=str(EXCEL_SOURCE_PATH),
             json_output_dir=str(DATA_DICTIONARY_PATH),
         )
-
-        # Now load the generated JSONL files
-        return load_data_dictionary()
-
+        # Load directly with recursive glob (files are in subdirs)
+        all_data: dict[str, list[dict]] = {}
+        for jsonl_file in DATA_DICTIONARY_PATH.glob("**/*.jsonl"):
+            if "Codelists" in str(jsonl_file) or "extraas" in str(jsonl_file):
+                continue
+            if records := _load_jsonl(jsonl_file):
+                all_data[jsonl_file.stem] = records
+        return all_data
     except ImportError as e:
-        logger.error(
-            "Excel fallback failed: Missing optional dependencies. "
-            "Install with: uv pip install reportalin-mcp[data-prep]\n"
-            f"Error: {e}"
-        )
+        logger.error(f"Excel fallback failed (missing deps): {e}")
         return {}
     except Exception as e:
         logger.error(f"Excel fallback failed: {e}")
         return {}
 
 
-# =============================================================================
-# Data Loading Functions
-# =============================================================================
+def _load_jsonl(path: Path) -> list[dict]:
+    """Load records from a JSONL file."""
+    records = []
+    try:
+        with path.open(encoding="utf-8") as f:
+            for line in f:
+                if line := line.strip():
+                    records.append(json.loads(line))
+    except Exception as e:
+        logger.error(f"Error loading {path}: {e}")
+    return records
 
 
-def load_data_dictionary() -> dict[str, list[dict]]:
-    """Load all data dictionary JSONL files with Excel fallback.
-
-    Tries to load from JSONL files first (fast, no dependencies).
-    If JSONL files don't exist, attempts Excel fallback (requires data-prep deps).
-
-    Returns:
-        Dictionary mapping table names to lists of field definition records.
-        Empty dict if no data sources available.
-    """
-    all_data: dict[str, list[dict]] = {}
-
-    # Try loading from JSONL files first (preferred)
+def _load_data_dictionary() -> dict[str, list[dict]]:
+    """Load all data dictionary JSONL files (recursive search in subdirs)."""
     if not DATA_DICTIONARY_PATH.exists():
         logger.warning(f"Data dictionary path not found: {DATA_DICTIONARY_PATH}")
-        # Try Excel fallback
         return _load_from_excel_fallback()
 
-    for jsonl_file in DATA_DICTIONARY_PATH.rglob("*.jsonl"):
-        table_name = jsonl_file.stem
-        records = []
+    all_data: dict[str, list[dict]] = {}
+    # JSONL files are in subdirectories like tblMED/tblMED_table.jsonl
+    for jsonl_file in DATA_DICTIONARY_PATH.glob("**/*.jsonl"):
+        # Skip Codelists (loaded separately) and extraas
+        if "Codelists" in str(jsonl_file) or "extraas" in str(jsonl_file):
+            continue
+        if records := _load_jsonl(jsonl_file):
+            all_data[jsonl_file.stem] = records
 
-        try:
-            with open(jsonl_file, encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        records.append(json.loads(line))
-            all_data[table_name] = records
-        except Exception as e:
-            logger.error(f"Error loading {jsonl_file}: {e}")
-
-    # If no data was loaded from JSONL, try Excel fallback
-    if not all_data:
-        logger.info("No JSONL files found. Attempting Excel fallback...")
-        return _load_from_excel_fallback()
-
-    return all_data
+    return all_data if all_data else _load_from_excel_fallback()
 
 
-def load_codelists() -> dict[str, list[dict]]:
-    """Load all codelist definitions.
-
-    Returns:
-        Dictionary mapping codelist names to lists of code/descriptor records.
-        Empty dict if codelist path doesn't exist.
-    """
+def _load_codelists() -> dict[str, list[dict]]:
+    """Load all codelist definitions."""
     codelists: dict[str, list[dict]] = {}
     codelist_path = DATA_DICTIONARY_PATH / "Codelists"
 
@@ -159,54 +125,70 @@ def load_codelists() -> dict[str, list[dict]]:
         return codelists
 
     for jsonl_file in codelist_path.glob("*.jsonl"):
-        try:
-            with open(jsonl_file, encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        record = json.loads(line)
-                        # Handle both field name formats
-                        codelist_name = (
-                            record.get("Codelist")
-                            or record.get("New codelists")
-                            or "UNKNOWN"
-                        )
-                        if codelist_name not in codelists:
-                            codelists[codelist_name] = []
-                        codelists[codelist_name].append(record)
-        except Exception as e:
-            logger.error(f"Error loading codelist {jsonl_file}: {e}")
+        for record in _load_jsonl(jsonl_file):
+            name = record.get("Codelist") or record.get("New codelists") or "UNKNOWN"
+            codelists.setdefault(name, []).append(record)
 
     return codelists
 
 
+def _load_dataset_headers() -> dict[str, list[str]]:
+    """Load all dataset headers from JSONL files."""
+    if not DATASET_HEADERS_PATH.exists():
+        logger.warning(f"Dataset headers path not found: {DATASET_HEADERS_PATH}")
+        return {}
+
+    all_headers: dict[str, list[str]] = {}
+    for jsonl_file in DATASET_HEADERS_PATH.glob("*_headers.jsonl"):
+        dataset_name = jsonl_file.stem.replace("_headers", "")
+        variables = [r["variable"] for r in _load_jsonl(jsonl_file) if r.get("variable")]
+        if variables:
+            all_headers[dataset_name] = variables
+
+    return all_headers
+
+
 # =============================================================================
-# Cache
+# Public Cached Getters
 # =============================================================================
 
 _dict_cache: dict[str, list[dict]] | None = None
 _codelist_cache: dict[str, list[dict]] | None = None
+_headers_cache: dict[str, list[str]] | None = None
+_unified_cache: UnifiedResults | None = None
 
 
 def get_data_dictionary() -> dict[str, list[dict]]:
-    """Get cached data dictionary.
-
-    Returns:
-        Dictionary mapping table names to field definitions.
-    """
+    """Get cached data dictionary (for search tool)."""
     global _dict_cache
     if _dict_cache is None:
-        _dict_cache = load_data_dictionary()
+        _dict_cache = _load_data_dictionary()
     return _dict_cache
 
 
 def get_codelists() -> dict[str, list[dict]]:
-    """Get cached codelists.
-
-    Returns:
-        Dictionary mapping codelist names to code/descriptor records.
-    """
+    """Get cached codelists (for search tool)."""
     global _codelist_cache
     if _codelist_cache is None:
-        _codelist_cache = load_codelists()
+        _codelist_cache = _load_codelists()
     return _codelist_cache
+
+
+def get_dataset_headers() -> dict[str, list[str]]:
+    """Get cached dataset headers (for dataset_headers tool)."""
+    global _headers_cache
+    if _headers_cache is None:
+        _headers_cache = _load_dataset_headers()
+    return _headers_cache
+
+
+def get_all_results() -> UnifiedResults:
+    """Get cached unified results (for combined_search tool)."""
+    global _unified_cache
+    if _unified_cache is None:
+        _unified_cache = UnifiedResults(
+            data_dictionary=get_data_dictionary(),
+            codelists=get_codelists(),
+            dataset_headers=get_dataset_headers(),
+        )
+    return _unified_cache

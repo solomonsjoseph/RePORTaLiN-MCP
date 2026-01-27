@@ -16,14 +16,23 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from reportalin.logging import get_logger
 from reportalin.server.tools._loaders import get_codelists, get_data_dictionary
 
-__all__ = ["search", "SearchResult", "Variable", "Codelist"]
+__all__ = ["Codelist", "SearchResult", "Variable", "search"]
 
 logger = get_logger(__name__)
+
+# Constants (2026 Best Practice: No Magic Numbers)
+MAX_SEARCH_TERMS = 15
+MAX_CODELIST_VALUES = 15
+MAX_VARIABLES_PER_TABLE = 30
+MAX_TOTAL_VARIABLES = 30
+MAX_CODELISTS = 10
+MAX_CODELIST_PREVIEW = 5
+MAX_DESC_LENGTH = 80
 
 
 # =============================================================================
@@ -32,18 +41,30 @@ logger = get_logger(__name__)
 
 
 class Variable(BaseModel):
-    """A variable found in the data dictionary."""
+    """A variable from the data dictionary."""
 
-    field_name: str = Field(description="Database field name to use in queries")
-    description: str = Field(description="Human-readable description")
-    table: str = Field(description="Database table containing this variable")
-    data_type: str | None = Field(default=None, description="Data type (e.g., Integer, Text)")
-    codelist: str | None = Field(default=None, description="Reference to codelist if categorical")
-    module: str | None = Field(default=None, description="CRF module/form source")
+    model_config = ConfigDict(frozen=True)  # Pydantic V2 immutability
+
+    field_name: str = Field(description="Variable name to reference in analysis")
+    description: str = Field(description="What this variable measures or represents")
+    data_type: str | None = Field(
+        default=None, description="Data type (e.g., Integer, Text, Date)"
+    )
+    codelist: str | None = Field(
+        default=None, description="Name of value set if categorical"
+    )
+    module: str | None = Field(
+        default=None, description="Clinical form or assessment source"
+    )
+    source_table: str | None = Field(
+        default=None, description="Data dictionary table name"
+    )
 
 
 class CodelistValue(BaseModel):
     """A single value in a codelist."""
+
+    model_config = ConfigDict(frozen=True)
 
     code: str = Field(description="The code value")
     description: str = Field(description="What the code means")
@@ -52,6 +73,8 @@ class CodelistValue(BaseModel):
 class Codelist(BaseModel):
     """A codelist (valid values for a categorical variable)."""
 
+    model_config = ConfigDict(frozen=True)
+
     name: str = Field(description="Codelist name")
     values: list[CodelistValue] = Field(description="Valid code/description pairs")
 
@@ -59,11 +82,16 @@ class Codelist(BaseModel):
 class SearchResult(BaseModel):
     """Result of a variable search - structured for LLM consumption."""
 
+    model_config = ConfigDict(frozen=True)
+
     query: str = Field(description="Original search query")
     search_terms: list[str] = Field(description="Terms searched (including synonyms)")
     variables: list[Variable] = Field(description="Matching variables")
     codelists: list[Codelist] = Field(description="Related codelists")
     suggestion: str | None = Field(default=None, description="Suggestion if no results")
+    formatted_output: str = Field(
+        description="Pre-formatted markdown for beautiful display"
+    )
 
 
 # =============================================================================
@@ -81,7 +109,16 @@ CONCEPT_SYNONYMS: dict[str, list[str]] = {
     "malnutrition": ["malnutrition", "undernutrition", "undernourish", "bmi"],
     "nutrition": ["nutrition", "bmi", "weight", "diet"],
     # Comorbidities
-    "diabetes": ["diabetes", "diabetic", "glucose", "hba1c", "fbg", "rbg", "ogtt", "blood sugar"],
+    "diabetes": [
+        "diabetes",
+        "diabetic",
+        "glucose",
+        "hba1c",
+        "fbg",
+        "rbg",
+        "ogtt",
+        "blood sugar",
+    ],
     "hiv": ["hiv", "aids", "hivstat", "retroviral", "antiretroviral", "cd4"],
     # Risk factors
     "smoking": ["smoking", "smoke", "smoker", "tobacco", "cigarette", "smokhx", "bidi"],
@@ -112,26 +149,26 @@ CONCEPT_SYNONYMS: dict[str, list[str]] = {
 
 def _expand_query(query: str) -> list[str]:
     """Expand query using clinical concept synonyms.
-    
+
     This is where the LLM-powered intelligence comes in - we understand
     clinical concepts, not just exact string matching.
     """
     query_lower = query.lower()
     terms = set()
-    
+
     # Add the original query and its words
     terms.add(query_lower)
     for word in query_lower.split():
         if len(word) > 2:  # Skip very short words
             terms.add(word)
-    
+
     # Expand using synonyms
     for concept, synonyms in CONCEPT_SYNONYMS.items():
         # If query matches concept or any synonym, add all synonyms
         if concept in query_lower or any(syn in query_lower for syn in synonyms):
             terms.update(synonyms)
-    
-    return list(terms)[:15]  # Limit to avoid overly broad search
+
+    return list(terms)[:MAX_SEARCH_TERMS]
 
 
 # =============================================================================
@@ -152,69 +189,77 @@ def search(
 ) -> SearchResult:
     """
     Search for study variables by clinical concept.
-    
+
     This is better than SQL search because it:
     - Understands clinical terminology and synonyms
     - Expands your query to find related variables
     - Returns structured metadata for research planning
-    
+    - Groups results by category for easy scanning
+    - Pre-formats output in beautiful markdown tables
+
     Examples:
         search("relapse") → finds relapse, recurrence, recur variables
         search("HIV") → finds HIV status, CD4, ART variables
         search("outcome") → finds treatment outcome variables
-    
+
     Args:
         query: Clinical concept to search for
-        
+
     Returns:
-        SearchResult with matching variables and codelists
+        SearchResult with matching variables, codelists, and formatted markdown
     """
     logger.info(f"Searching for: {query}")
-    
+
     # Get data
     data_dict = get_data_dictionary()
     codelists = get_codelists()
-    
+
     # Expand query with synonyms (the LLM-powered part)
     search_terms = _expand_query(query)
-    
-    # Search variables
-    found_vars: dict[str, Variable] = {}
-    
+
+    # Search variables - group by table
+    found_vars_by_table: dict[str, list[Variable]] = {}
+
     for table_name, records in data_dict.items():
         for record in records:
             field_name = record.get("Question Short Name (Databank Fieldname)", "")
             if not field_name:
                 continue
-                
+
             # Build searchable text
-            searchable = " ".join([
-                str(field_name),
-                str(record.get("Question", "")),
-                str(record.get("Module", "")),
-                str(record.get("Code List or format", "")),
-                str(record.get("Notes", "")),
-            ]).lower()
-            
+            searchable = " ".join(
+                [
+                    str(field_name),
+                    str(record.get("Question", "")),
+                    str(record.get("Module", "")),
+                    str(record.get("Code List or format", "")),
+                    str(record.get("Notes", "")),
+                ]
+            ).lower()
+
             # Check if any search term matches
             for term in search_terms:
-                if term in searchable and field_name not in found_vars:
-                    found_vars[field_name] = Variable(
+                if term in searchable:
+                    var = Variable(
                         field_name=field_name,
                         description=record.get("Question") or "",
-                        table=record.get("__table__") or table_name,
                         data_type=record.get("Type"),
                         codelist=record.get("Code List or format"),
                         module=record.get("Module"),
+                        source_table=record.get("__table__") or table_name,
                     )
+
+                    if table_name not in found_vars_by_table:
+                        found_vars_by_table[table_name] = []
+                    found_vars_by_table[table_name].append(var)
                     break
-    
+
     # Search codelists
     found_codelists: dict[str, Codelist] = {}
-    
+
     for name, values in codelists.items():
         name_lower = name.lower()
-        
+
         # Check if codelist name matches any search term
         for term in search_terms:
             if term in name_lower and name not in found_codelists:
@@ -229,7 +274,7 @@ def search(
                     ],
                 )
                 break
-        
+
         # Also check value descriptions
         if name not in found_codelists:
             for v in values:
@@ -249,27 +294,71 @@ def search(
                         break
                 if name in found_codelists:
                     break
-    
-    # Build result
-    variables = list(found_vars.values())[:30]  # Limit results
+
+    # Flatten variables for structured output
+    all_vars = [v for vars_list in found_vars_by_table.values() for v in vars_list]
+    all_vars = all_vars[:30]  # Limit results
     codelist_list = list(found_codelists.values())[:10]
-    
+
+    # Build formatted markdown output (like the perfect example)
+    formatted_lines = []
+
+    if not all_vars and not codelist_list:
+        formatted_lines.append(f"No variables found for **'{query}'**.\n")
+        formatted_lines.append("**Try:**")
+        formatted_lines.append("- Different terms: 'smoking' instead of 'tobacco use'")
+        formatted_lines.append(
+            "- Abbreviations: 'DM' for diabetes, 'HIV' for human immunodeficiency"
+        )
+        formatted_lines.append("- Specific concepts: 'outcome', 'status', 'history'")
+    else:
+        # Group variables by table and create beautiful markdown tables
+        for table_name, vars_list in sorted(found_vars_by_table.items()):
+            formatted_lines.append(f"\n**{table_name}**")
+            formatted_lines.append("| Field | Description | Table |")
+            formatted_lines.append("|-------|-------------|-------|")
+
+            for var in vars_list[:30]:  # Limit per table
+                # Clean description for table display
+                desc = var.description.replace("\n", " ").replace("|", "\\|")
+                if len(desc) > 80:
+                    desc = desc[:77] + "..."
+
+                formatted_lines.append(
+                    f"| `{var.field_name}` | {desc} | {var.source_table} |"
+                )
+
+        # Add codelists section
+        if codelist_list:
+            formatted_lines.append("\n**Relevant Codelists**")
+            for cl in codelist_list:
+                formatted_lines.append(f"- `{cl.name}` includes:")
+                for val in cl.values[:5]:  # Show top 5
+                    formatted_lines.append(f'  - `{val.code}` = "{val.description}"')
+                if len(cl.values) > 5:
+                    formatted_lines.append(
+                        f"  - ... and {len(cl.values) - 5} more values"
+                    )
+
+    formatted_output = "\n".join(formatted_lines)
+
     # Add suggestion if no results
     suggestion = None
-    if not variables:
+    if not all_vars:
         suggestion = (
             f"No variables found for '{query}'. Try:\n"
             "- Different terms: 'smoking' instead of 'tobacco use'\n"
             "- Abbreviations: 'DM' for diabetes, 'HIV' for human immunodeficiency\n"
             "- Specific concepts: 'outcome', 'status', 'history'"
         )
-    
-    logger.info(f"Found {len(variables)} variables, {len(codelist_list)} codelists")
-    
+
+    logger.info(f"Found {len(all_vars)} variables, {len(codelist_list)} codelists")
+
     return SearchResult(
         query=query,
         search_terms=search_terms,
-        variables=variables,
+        variables=all_vars,
         codelists=codelist_list,
         suggestion=suggestion,
+        formatted_output=formatted_output,
     )

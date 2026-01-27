@@ -10,7 +10,7 @@ name = "reportalin-mcp"
 # Version is AUTOMATICALLY derived from git tags via setuptools-scm
 # DO NOT manually set version here - use: git tag v0.3.0
 dynamic = ["version"]
-description = "Data Dictionary Expert MCP server for RePORT India TB clinical research - variable discovery and metadata lookup"
+description = "Smart variable discovery MCP server with 3 tools: combined_search (primary), search (dictionary), list_dataset_headers (datasets) - for RePORT India TB research"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
@@ -48,8 +48,8 @@ classifiers = [
 # Core Dependencies
 # -----------------------------------------------------------------------------
 dependencies = [
-    # MCP SDK with CLI support
-    "mcp[cli]>=1.0.0,<2.0.0",
+    # MCP SDK with CLI support (v1.26.0+ for latest features)
+    "mcp[cli]>=1.26.0,<2.0.0",
     # Web framework (for HTTP transport)
     "fastapi>=0.115.0,<1.0.0",
     "uvicorn[standard]>=0.32.0,<1.0.0",
@@ -65,6 +65,10 @@ dependencies = [
     "rich>=13.0.0,<14.0.0",
     "argcomplete>=3.0.0,<4.0.0",
     "ruff>=0.14.0",
+    # Data processing (required for dictionary loading)
+    "pandas>=2.0.0,<3.0.0",
+    "openpyxl>=3.1.0,<4.0.0",
+    "tqdm>=4.66.0,<5.0.0",
 ]
 
 # -----------------------------------------------------------------------------

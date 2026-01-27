@@ -26,23 +26,23 @@ def event_loop():
 @pytest.fixture(scope="function", autouse=True)
 def reset_logging():
     """Reset logging state between tests."""
-    from reportalin.logging import configure_logging, clear_context
     import reportalin.logging as log_module
-    
+    from reportalin.logging import clear_context, configure_logging
+
     # Reset module state
     log_module._configured = False
-    
+
     # Clear all handlers from root logger
     root_logger = logging.getLogger()
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
-    
-    # Configure logging for tests (email disabled)
-    configure_logging(level="WARNING", format="console", enable_email=False, force=True)
+
+    # Configure logging for tests
+    configure_logging(level="WARNING", format="console", force=True)
     clear_context()
-    
+
     yield
-    
+
     # Cleanup after test
     clear_context()
     log_module._configured = False
@@ -54,11 +54,11 @@ def reset_logging():
 def settings():
     """Get test settings instance."""
     from reportalin.core.config import get_settings
-    
+
     # Clear cache to get fresh settings
     get_settings.cache_clear()
-    
+
     yield get_settings()
-    
+
     # Clear again after test
     get_settings.cache_clear()

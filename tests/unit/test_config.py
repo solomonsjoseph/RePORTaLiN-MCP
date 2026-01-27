@@ -1,15 +1,6 @@
-"""
-Tests for config module.
+"""Tests for config module - minimal."""
 
-Minimal tests for configuration loading and validation.
-"""
-
-import os
-import sys
 from pathlib import Path
-
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from reportalin.core import config
 
@@ -19,7 +10,7 @@ class TestConfigPaths:
 
     def test_root_dir_exists(self) -> None:
         """ROOT_DIR should be a valid directory."""
-        assert os.path.isdir(config.ROOT_DIR)
+        assert Path(config.ROOT_DIR).is_dir()
 
     def test_data_dir_path(self) -> None:
         """DATA_DIR should be under ROOT_DIR."""
@@ -32,15 +23,14 @@ class TestConfigPaths:
         assert config.RESULTS_DIR.endswith("results")
 
 
-class TestConfigValidation:
-    """Test configuration validation."""
+class TestSettings:
+    """Test Settings class."""
 
-    def test_validate_config_returns_list(self) -> None:
-        """validate_config should return a list."""
-        warnings = config.validate_config()
-        assert isinstance(warnings, list)
+    def test_get_settings(self) -> None:
+        """Test settings singleton."""
+        from reportalin.core.config import get_settings
 
-    def test_ensure_directories_creates_dirs(self, tmp_path: Path) -> None:
-        """ensure_directories should create necessary directories."""
-        # This test just verifies the function runs without error
-        config.ensure_directories()
+        settings = get_settings()
+        assert settings.mcp_host == "127.0.0.1"
+        assert settings.mcp_port == 8000
+        assert settings.mcp_transport == "stdio"
