@@ -1,121 +1,118 @@
-# RePORTaLiN MCP Server
+# RePORTaLiN-Agent
 
-> **Smart clinical variable discovery for RePORT India TB study - 3 intelligent tools**
+> Privacy-First Clinical Data Extraction Multi-Agent System
 
-## What It Does
+## 🎯 Mission
 
-Provides intelligent variable search for the RePORT India tuberculosis cohort study. Designed for researchers, data scientists, and Claude AI to quickly find relevant clinical variables with privacy-by-default.
+Extract clinical research data with **100% accuracy** while applying **zero-tolerance privacy protection** compliant with India's Digital Personal Data Protection Act 2023.
 
-### Three Tools (Use combined_search First!)
+## 🤖 Agents
 
-1. **`combined_search`** 🌟 **USE THIS FIRST** - One-stop smart search across dictionary AND datasets
-2. **`search`** - Dictionary-only search when you need definitions without dataset info
-3. **`list_dataset_headers`** - Dataset-only listing when you only need available variables
-
-### Example Usage
-
-**PRIMARY TOOL - Combined Search (RECOMMENDED):**
-```
-User: "What HIV variables do we have?"
-Tool: combined_search("HIV")
-Returns: HIV variables from dictionary + which are available in datasets + summary
-```
-
-**Dictionary-only search (when you don't need dataset info):**
-```
-User: "What variables track TB relapse?"
-Tool: search("relapse")
-Returns: Variables for relapse, recurrence, treatment outcomes (definitions only)
-```
-
-**Dataset-only listing (when you only need availability):**
-```
-User: "What TST variables are documented?"
-Tool: list_dataset_headers("TST")
-Returns: All TST variables with descriptions
-```
-
-## Key Features
-
-- **Privacy-First**: No file names or internal details exposed to LLM
-- **Concept Understanding**: "relapse" finds "recurrence", "recur" automatically
-- **Clinical Synonyms**: "diabetes" expands to DM, glucose, HbA1c, OGTT
-- **Structured Output**: Ready for analysis planning
-- **Fast**: Instant concept-based retrieval
-
-## Quick Start
+### 📖 Lexicographer
+Converts Excel data dictionaries to clean, readable Markdown.
 
 ```bash
-# Setup system (install + extract data)
-make run
-
-# Then start server for Claude Desktop
-make serve
-
-# Or run full dev cycle
-make dev
+python agents/lexicographer.py                           # Default paths
+python agents/lexicographer.py --xlsx path/to/dict.xlsx  # Custom input
+python agents/lexicographer.py --output docs/            # Custom output
+python agents/lexicographer.py --dry-run                 # Preview only
 ```
 
-Individual commands:
+**Features:**
+- Island detection (splits sheets into tables at empty rows)
+- 100% data preservation (no truncation)
+- Duplicate header handling (`Date` → `Date_1`)
+- "Ignore below" markers respected
+- Clean GitHub Markdown output
+
+### ✂️ Redactor
+Privacy-first Excel → Markdown/JSONL extractor with full audit trail.
+
 ```bash
-make install    # Install dependencies
-make extract    # Process data dictionary
-make serve      # Start MCP server (stdio - waits for Claude)
-make test       # Run tests
+python agents/redactor.py                                # Default paths
+python agents/redactor.py -i data/raw/study -o archive   # Custom paths
+python agents/redactor.py --dry-run                      # Preview only
+python agents/redactor.py --no-privacy                   # Skip PII protection
+python agents/redactor.py --audit-only                   # Show PII report
 ```
 
-## Claude Desktop Integration
+**Features:**
+- Pattern-based PHI/PII detection (column names + cell values)
+- Consistent pseudonymization (same ID → same hash across dataset)
+- Smart masking (dates → year only, locations → abbreviated)
+- Age generalization (5-year bands)
+- Value scanning for embedded PII (emails, phones, Aadhaar, PAN)
+- Per-folder privacy audit logs
+- JSONL output (one record per line) + Markdown tables
 
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+## 📂 Project Structure
 
-```json
-{
-  "mcpServers": {
-    "reportalin": {
-      "command": "uv",
-      "args": [
-        "run",
-        "--directory",
-        "/absolute/path/to/RePORTaLiN-Agent",
-        "reportalin-mcp"
-      ]
-    }
-  }
-}
+```
+RePORTaLiN-Agent/
+├── agents/
+│   ├── redactor.py       # Privacy-first data extractor
+│   └── lexicographer.py  # Data dictionary converter
+├── data/
+│   └── raw/              # Source Excel files
+├── archive/              # Redactor output (privacy-safe)
+│   └── {Dataset}/
+│       └── {Sheet}/
+│           ├── Table_1.md
+│           ├── Table_1.jsonl
+│           └── _privacy_audit.json
+├── dictionary/           # Lexicographer output
+│   └── {SheetName}.md
+└── README.md
 ```
 
-**Auto-generation (recommended):** Run `make config` to generate `claude_desktop_config.json` with the correct paths automatically. Then copy its contents to your Claude Desktop config.
+## 🔒 Privacy Compliance
 
-Replace `/absolute/path/to/RePORTaLiN-Agent` with your actual path if copying manually.
+**India DPDP Act 2023 + IT Act 2000 Section 43A**
 
-Restart Claude Desktop. All three tools (`combined_search`, `search`, `list_dataset_headers`) will be available.
+| Data Type | Action | Example |
+|-----------|--------|---------|
+| Subject IDs | HASH | `10200001A` → `dd2017301cab9670` |
+| Names, Initials | HASH | `Dr. Sharma` → `a1b2c3d4e5f6g7h8` |
+| Dates | MASK | `2023-05-14` → `2023-**-**` |
+| Locations | MASK | `Mumbai` → `Mu***` |
+| Ages | GENERALIZE | `27` → `25-29` |
+| Addresses | REDACT | `123 Main St` → `[REDACTED]` |
+| Free text with PHI | SCAN+REDACT | `Call 9876543210` → `Call [PHONE]` |
 
-## Logging Configuration
+**Value-level PHI detection:**
+- Indian phone numbers (+91/0 prefix, 10 digits)
+- Email addresses
+- Aadhaar numbers (12 digits)
+- PAN numbers (ABCDE1234F format)
+- Pincodes (6 digits)
+- Names with titles (Mr./Mrs./Dr./Shri/Smt)
 
-**Development:** File logging is auto-enabled to `logs/reportalin.log` for easy debugging.
+## 🚀 Quick Start
 
-**Production:** Logs to stderr only (12-Factor App compliant). Use Docker/systemd to route logs.
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `LOG_LEVEL` | `INFO` | Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL |
-| `LOG_FORMAT` | `console` | Output format: `console` (dev) or `json` (production) |
-| `LOG_FILE` | `logs/reportalin.log` (dev) | File path for persistent logs. Set to empty to disable. |
-| `ENVIRONMENT` | `local` | `local`/`development` enables file logging, `production` disables it |
-
-**Debug with verbose logging:**
 ```bash
-LOG_LEVEL=DEBUG make serve
-tail -f logs/reportalin.log  # Watch logs in real-time
+# Install dependencies
+pip install pandas openpyxl tabulate
+
+# Run Lexicographer on data dictionary
+python agents/lexicographer.py
+
+# Run Redactor with privacy protection
+python agents/redactor.py
+
+# Run Redactor in audit-only mode (see what would be redacted)
+python agents/redactor.py --audit-only
 ```
 
-Logs are rotated automatically (10MB max, 5 backups).
-
-## Requirements
+## 📋 Requirements
 
 - Python 3.13+
-- uv (package manager)
+- pandas
+- openpyxl
+- tabulate
 
-## License
+## 📜 License
 
-MIT
+MIT License - See LICENSE file for details.
+
+---
+*Built for the RePORT International consortium*
