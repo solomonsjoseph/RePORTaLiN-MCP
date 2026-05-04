@@ -1,0 +1,139 @@
+# =============================================================================
+# RePORTaLiN MCP Server - Docker Compose Configuration
+# =============================================================================
+# Production-ready orchestration for the MCP server.
+#
+# USAGE:
+#   # Development (with hot reload)
+#   docker compose up mcp-server-dev
+#
+#   # Production
+#   docker compose up mcp-server
+#
+#   # With build
+#   docker compose up --build mcp-server
+#
+# ENVIRONMENT:
+#   Create a .env file with required variables (see .env.example)
+#
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Production MCP Server
+  # ---------------------------------------------------------------------------
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.uv
+    image: reportalin-mcp:latest
+    container_name: reportalin-mcp
+    restart: unless-stopped
+    
+    # Port mapping - expose MCP server
+    ports:
+      - "${MCP_PORT:-8000}:8000"
+    
+    # Environment variables from .env file
+    environment:
+      # Server Configuration
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      
+      # Security (REQUIRED)
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN:?MCP_AUTH_TOKEN is required}
+      - MCP_AUTH_ENABLED=${MCP_AUTH_ENABLED:-true}
+      
+      # Privacy Configuration
+      - PRIVACY_MODE=${PRIVACY_MODE:-strict}
+      - MIN_K_ANONYMITY=${MIN_K_ANONYMITY:-5}
+      
+      # Optional: LLM API Keys (for enhanced features)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    
+    # Mount data directories as read-only for security
+    volumes:
+      - ./results:/app/results:ro
+      - ./data:/app/data:ro
+      - ./encrypted_logs:/app/encrypted_logs:rw
+    
+    # Health check using the /health endpoint
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    
+    # Resource limits (adjust based on workload)
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # Development Server (with hot reload)
+  # ---------------------------------------------------------------------------
+  mcp-server-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.uv
+    image: reportalin-mcp:dev
+    container_name: reportalin-mcp-dev
+    
+    ports:
+      - "${MCP_PORT:-8000}:8000"
+    
+    environment:
+      - ENVIRONMENT=local
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
+      - LOG_FORMAT=pretty
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN:-dev-token-change-me}
+      - MCP_AUTH_ENABLED=${MCP_AUTH_ENABLED:-true}
+    
+    # Mount source for hot reload
+    volumes:
+      - ./server:/app/server:ro
+      - ./client:/app/client:ro
+      - ./shared:/app/shared:ro
+      - ./results:/app/results:ro
+      - ./data:/app/data:ro
+    
+    # Override command for development with reload
+    command: ["uvicorn", "server.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+# =============================================================================
+# Networks (optional - for multi-service deployments)
+# =============================================================================
+networks:
+  default:
+    name: reportalin-network
+    driver: bridge

@@ -47,6 +47,9 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+# Structural mistakes (nested src directories)
+src/src/
+
 # ============================================================================
 # 2. Virtual Environments
 # ============================================================================
@@ -92,7 +95,27 @@ tmp/
 data/.backup/
 *.tmp
 *.temp
-*.txt
+plan/
+
+# Encrypted audit logs (regenerated, contain session data)
+encrypted_logs/*.enc
+
+# ============================================================================
+# 4a. Project Temporary Files (CRITICAL - DO NOT COMMIT)
+# ============================================================================
+# Temporary working directory
+/tmp/
+tmp/**
+
+# Results output directory (regenerated, may contain sensitive data)
+/results/dataset/
+
+# Keep data_dictionary_mappings - these are derived from public mapping specs
+# and are needed by the MCP server tools
+# /results/data_dictionary_mappings/  # TRACKED - required for search tool
+
+# Claude desktop config (user-specific)
+claude_desktop_config.json
 
 # ============================================================================
 # 5. Operating Systems
@@ -141,13 +164,14 @@ coverage.xml
 nosetests.xml
 
 # ============================================================================
-# 7. Type Checking
+# 7. Type Checking & Linting
 # ============================================================================
 .mypy_cache/
 .dmypy.json
 dmypy.json
 .pyre/
 .pytype/
+.ruff_cache/
 
 # ============================================================================
 # 8. Jupyter Notebooks
@@ -193,14 +217,11 @@ credentials.json
 # .git/
 
 # ============================================================================
-# 11. De-identification & PHI/PII (CRITICAL - DO NOT COMMIT)
+# 11. PHI/PII Data Protection (CRITICAL - DO NOT COMMIT)
 # ============================================================================
 # Mapping files (contain PHI/PII → pseudonym relationships)
 *_mappings.json
 *_mappings.json.enc
-*_deidentification_key.key
-*_deidentification_audit.json
-results/deidentified/mappings/
 
 # Original dataset directories (may contain PHI/PII)
 results/dataset/
@@ -252,12 +273,15 @@ data/data_dictionary_and_mapping_specifications/~$*.xlsx
 docs/.vision/
 docs/.vision/**
 
-# Documentation Policy: NO .md files except README.md
-# All documentation goes in docs/sphinx/*.rst files
-*.md
-!README.md
+# Instructions directory (for internal use only)
+.github/instructions/
 
-# Temporary documentation files
+# ============================================================================
+# 15. Housekeeping & Temporary Documentation
+# ============================================================================
+# Temporary/generated markdown files (NOT project documentation)
+# Project docs are in: README.md, CHANGELOG.md, CONTRIBUTING.md, SECURITY.md, docs/*.md
+CLEANUP_REPORT.md
 FIXES.md
 AUDIT.md
 VERIFICATION.md
@@ -268,3 +292,26 @@ NOTES.md
 *_AUDIT*.md
 *_REPORT*.md
 *_SUMMARY*.md
+
+# =============================================================================
+# MCP Phase 0 - Additional Ignores
+# =============================================================================
+
+# UV lock file (optional - some teams commit this)
+# uv.lock
+
+# Backup files from Phase 0 cleanup
+*.bak
+
+# Local environment overrides
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

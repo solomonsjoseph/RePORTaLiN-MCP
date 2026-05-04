@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "reportalin-mcp": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "/path/to/RePORTaLiN-Agent",
+        "reportalin-mcp"
+      ],
+      "env": {
+        "REPORTALIN_PRIVACY_MODE": "strict"
+      }
+    }
+  }
+}

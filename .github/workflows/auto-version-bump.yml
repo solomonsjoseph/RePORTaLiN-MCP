@@ -48,8 +48,14 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install commitizen
-        run: pip install commitizen
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install dependencies
+        run: uv sync --frozen --dev
 
       - name: Configure git
         run: |
@@ -69,17 +75,17 @@ jobs:
 
           # Run dry-run first to see what would happen
           echo "Dry-run output:"
-          cz bump --dry-run 2>&1 || true
+          uv run cz bump --dry-run 2>&1 || true
           echo ""
 
           # Check if there are commits to bump
-          if cz bump --dry-run 2>&1 | grep -q "NO_COMMITS_TO_BUMP"; then
+          if uv run cz bump --dry-run 2>&1 | grep -q "NO_COMMITS_TO_BUMP"; then
             echo "No version bump needed"
             echo "bumped=false" >> $GITHUB_OUTPUT
           else
             # Perform the actual bump
             echo "Performing version bump..."
-            cz bump --yes --changelog
+            uv run cz bump --yes --changelog
             echo "bumped=true" >> $GITHUB_OUTPUT
             # Get new version
             NEW_VERSION=$(grep "^__version__" __version__.py | sed 's/.*"\(.*\)"/\1/')

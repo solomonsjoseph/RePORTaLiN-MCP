@@ -1,0 +1,186 @@
+# =============================================================================
+# Docker Build Exclusions for RePORTaLiN MCP Server
+# =============================================================================
+# This file excludes unnecessary files from the Docker build context
+# to speed up builds and reduce image size.
+#
+# Security: Data files containing PHI are explicitly excluded.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Version Control
+# -----------------------------------------------------------------------------
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# -----------------------------------------------------------------------------
+# Python Cache and Bytecode
+# -----------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+.eggs/
+pip-wheel-metadata/
+
+# -----------------------------------------------------------------------------
+# Virtual Environments
+# -----------------------------------------------------------------------------
+.venv/
+venv/
+ENV/
+env/
+.env/
+.env
+.env.*
+!.env.example
+
+# -----------------------------------------------------------------------------
+# IDE and Editor Files
+# -----------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-*
+.project
+.pydevproject
+*.code-workspace
+
+# -----------------------------------------------------------------------------
+# Testing and Coverage
+# -----------------------------------------------------------------------------
+tests/
+test/
+*.test.py
+conftest.py
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# -----------------------------------------------------------------------------
+# Documentation (kept lightweight in container)
+# -----------------------------------------------------------------------------
+docs/
+*.md
+!README.md
+
+# -----------------------------------------------------------------------------
+# SECURITY: Data Files (Contains PHI - NEVER include in container)
+# -----------------------------------------------------------------------------
+data/
+results/dataset/
+*.xlsx
+*.csv
+*.jsonl
+*.json
+!claude_desktop_config.example.json
+
+# -----------------------------------------------------------------------------
+# Logs and Temporary Files
+# -----------------------------------------------------------------------------
+*.log
+*.tmp
+*.temp
+encrypted_logs/
+.logs/
+logs/
+
+# -----------------------------------------------------------------------------
+# Build Artifacts
+# -----------------------------------------------------------------------------
+dist/
+build/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+
+# -----------------------------------------------------------------------------
+# OS Files
+# -----------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# -----------------------------------------------------------------------------
+# Development and CI Files
+# -----------------------------------------------------------------------------
+Makefile
+.pre-commit-config.yaml
+CHANGELOG.md
+CONTRIBUTING.md
+SECURITY.md
+.editorconfig
+.flake8
+setup.cfg
+tox.ini
+
+# -----------------------------------------------------------------------------
+# Docker Files (Avoid recursive copying)
+# -----------------------------------------------------------------------------
+Dockerfile*
+!Dockerfile
+docker-compose*.yml
+.docker/
+.dockerignore
+
+# -----------------------------------------------------------------------------
+# Deprecated/Unused
+# -----------------------------------------------------------------------------
+mcp_server/
+*.bak
+*.orig
+
+# -----------------------------------------------------------------------------
+# Backward-Compatibility Shims (NOT needed in Docker - package is installed)
+# -----------------------------------------------------------------------------
+# These directories contain only shims that redirect to src/reportalin/
+# They are excluded from the package build per pyproject.toml
+# Docker uses the installed package directly, so these are bloat
+server/
+client/
+shared/
+scripts/
+
+# -----------------------------------------------------------------------------
+# Additional Python/Build Artifacts (Best Practices Update 2025)
+# -----------------------------------------------------------------------------
+*.pyo
+*.pyd
+.Python
+pip-wheel-metadata/
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+htmlcov/
+.cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytype/
+cython_debug/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Environments
+.pyenv/
+poetry.lock
+
+# tmp directory
+tmp/
